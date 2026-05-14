@@ -1,0 +1,45 @@
+<div class="min-vh-100 bg-light d-flex flex-column">
+    <nav class="navbar navbar-dark bg-primary px-3">
+        <span class="navbar-brand fw-bold">
+            <i class="bi bi-box-seam me-2">
+                Inventario de Almacén
+            </i>
+        </span>
+        <button class="btn btn-outline-light btn-sm" (click)="logout()">
+            <i class="bi bi-box-arrow-right me-1"></i>
+            Cerrar Sesión
+        </button>
+    </nav>
+
+    <ul class="nav nav-tabs bg-white px-2 pt-2 shadow-sm">
+        <li class="nav-item">
+            <button class="nav-link" [class.active]="activeTab === 'SMT'" (click)="setTab('SMT')">
+                <i class="bi bi-grid me-1"></i>
+                SMT
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" [class.active]="activeTab === 'tab2'" (click)="setTab('tab2')">
+                <i class="bi bi-list me-1"></i>
+                Tab 2
+            </button>
+        </li>
+        @if (isAdmin) {
+        <li class="nav-item">
+            <button class="nav-link" [class.active]="activeTab === 'users'" (click)="setTab('users')">
+                <i class="bi bi-people me-1"></i>
+                Usuarios
+            </button>
+        </li>
+        }
+    </ul>
+
+    <div class="container-fluid p-3 flex-grow-1">
+        @if (activeTab === 'SMT') {
+            <app-smt-component />
+        }
+        @if (activeTab === 'users' && isAdmin) {
+            <app-users-component />
+        }
+    </div>
+</div>

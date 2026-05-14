@@ -1,0 +1,54 @@
+<div class="min-vh-100 d-flex align-items-center bg-light">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-12 col-sm-8 col-md-5">
+                <div class="card shadow border-0 rounded-4">
+                    <div class="card-body p-4">
+                        <div class="text-center mb-4">
+                            <i class="bi bi-shield-lock-fill text-primary" style="font-size: 2.5rem;"></i>
+                            <h4 class="mt-2 fw-bold">
+                                Iniciar Sesión
+                            </h4>
+                        </div>
+
+                        <form [formGroup]="form" (ngSubmit)="onSubmit()">
+                            <div class="mb-3">
+                                <label class="form-label">Correo Electrónico</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="bi bi-envelope"></i>
+                                    </span>
+                                    <input type="email" class="form-control" formControlName="email" placeholder="usuario@correo.com">
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label">Contraseña</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="bi bi-lock"></i>
+                                    </span>
+                                    <input [type]="showPass ? 'text' : 'password'" class="form-control" formControlName="password">
+                                    <button type="button" class="btn btn-outline-secondary" (click)="showPass = !showPass">
+                                        <i class="bi" [class.bi-eye]="!showPass" [class.bi-eye-slash]="showPass"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            @if (error) {
+                                <div class="alert alert-danger py-2 small">{{ error }}</div>
+                            }
+
+                            <button type="submit" class="btn btn-primary w-100" [disabled]="form.invalid || loading">
+                                @if (loading) {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
+                                {{ loading ? 'Ingresando...' : 'Iniciar Sesión' }}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

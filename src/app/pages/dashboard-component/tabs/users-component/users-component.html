@@ -1,0 +1,100 @@
+@if (success) {
+<div class="alert alert-success py-2 small">
+    {{ success }}
+</div>
+}
+@if (error) {
+<div class="alert alert-danger py-2 small">
+    {{ error }}
+</div>
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h6 class="mb-0 fw-bold">
+        Usuarios
+    </h6>
+    <button class="btn btn-sm btn-primary" (click)="openCreateModel()">
+        <i class="bi bi-plus-lg me-1"></i> Nuevo
+    </button>
+</div>
+
+<div class="list-group">
+    @for (user of users; track user.uid) {
+    <div class="list-group-item d-flex justify-content-between align-items-center">
+        <div>
+            <div class="fw-semibold">
+                {{ user.displayName }}
+            </div>
+            <small class="text-muted">
+                {{ user.email }}
+            </small>
+            <span class="badge ms-2" [class.bg-danger]="user.role === 'admin'"
+                [class.bg-secondary]="user.role !== 'admin'">
+                {{ user.role }}
+            </span>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary btn-sm" (click)="openEditModel(user)">
+                <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-outline-danger btn-sm" (click)="deleteUser(user)">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+    </div>
+    }
+</div>
+
+@if (showModal) {
+<div class="modal d-block" tabindex="-1" style="background:rgba(0, 0, 0, 0.5)">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    {{ editingUser ? 'Editar Usuario' : 'Nuevo Usuario' }}
+                </h5>
+                <button type="button" class="btn-close" (click)="closeModal()"></button>
+            </div>
+            <div class="modal-body">
+                @if (error) {
+                <div class="alert alert-danger py-2 small">
+                    {{ error }}
+                </div>
+                }
+                <form [formGroup]="userForm">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre</label>
+                        <input type="text" class="form-control" formControlName="displayName">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Correo</label>
+                        <input type="email" class="form-control" formControlName="email">
+                    </div>
+                    @if (!editingUser) {
+                        <div class="mb-3">
+                            <label class="form-label">Contraseña</label>
+                            <input type="password" class="form-control" formControlName="password">
+                        </div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label">Rol</label>
+                        <select class="form-select" formControlName="role">
+                            <option value="user">Usuario</option>
+                            <option value="admin">Administrador</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" (click)="closeModal()">Cancelar</button>
+                <button type="button" class="btn btn-primary" (click)="saveUser()" [disabled]="userForm.invalid || loading">
+                    @if (loading) {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    {{ editingUser ? 'Guardar Cambios' : 'Crear Usuario' }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+}
