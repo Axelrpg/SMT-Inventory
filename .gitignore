@@ -2,12 +2,14 @@
 
 # Compiled output
 /dist
+functions/lib/
 /tmp
 /out-tsc
 /bazel-out
 
 # Node
 /node_modules
+functions/node_modules/
 npm-debug.log
 yarn-error.log
 
@@ -26,6 +28,7 @@ yarn-error.log
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+!.vscode/mcp.json
 .history/*
 
 # Miscellaneous
@@ -41,3 +44,14 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Custom
+/.agents
+/src/environments
+/saved-data
