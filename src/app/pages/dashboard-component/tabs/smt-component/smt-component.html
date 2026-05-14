@@ -1,0 +1,315 @@
+<div class="smt-container">
+
+    @if (success) {
+    <div class="alert alert-success py-2 small">{{ success }}</div>
+    }
+    @if (error) {
+    <div class="alert alert-danger py-2 small">{{ error }}</div>
+    }
+
+    <!-- ══════════════ LISTA ══════════════ -->
+    @if (view === 'list') {
+
+    <h6 class="fw-bold mb-3"><i class="bi bi-upc-scan me-2"></i>Rollos SMT</h6>
+
+    <div class="d-grid gap-2 mb-3">
+        <button class="btn btn-success" (click)="openInput()">
+            <i class="bi bi-box-arrow-in-down me-2"></i>Registrar Entrada
+        </button>
+        <button class="btn btn-warning" (click)="openOutput()">
+            <i class="bi bi-box-arrow-up me-2"></i>Registrar Salida
+        </button>
+    </div>
+
+    <div class="list-group">
+        @for (roll of rolls; track roll.id) {
+        <div class="list-group-item">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="fw-semibold">{{ roll.partNumber }}</div>
+                    <small class="text-muted d-block">
+                        <i class="bi bi-geo-alt me-1"></i>{{ roll.location }}
+                    </small>
+                    <span class="badge mt-1" [class.bg-success]="roll.quantity > 10"
+                        [class.bg-warning]="roll.quantity > 0 && roll.quantity <= 10"
+                        [class.bg-danger]="roll.quantity === 0">
+                        {{ roll.quantity }} pzs
+                    </span>
+                </div>
+                <div class="d-flex gap-1">
+                    <button class="btn btn-outline-secondary btn-sm" (click)="openHistory(roll)" title="Historial">
+                        <i class="bi bi-clock-history"></i>
+                    </button>
+                    @if (isAdmin) {
+                    <button class="btn btn-outline-primary btn-sm" (click)="openEditModal(roll)">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-outline-danger btn-sm" (click)="deleteRoll(roll)">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                    }
+                </div>
+            </div>
+        </div>
+        }
+        @if (rolls.length === 0) {
+        <div class="text-center text-muted py-4">
+            <i class="bi bi-inbox" style="font-size:2rem"></i>
+            <p class="mt-2 small">No hay rollos registrados</p>
+        </div>
+        }
+    </div>
+    }
+
+    <!-- ══════════════ ENTRADA ══════════════ -->
+    @if (view === 'input') {
+    <button class="btn btn-link ps-0 mb-3" (click)="goBack()">
+        <i class="bi bi-arrow-left me-1"></i>Cancelar
+    </button>
+    <h6 class="fw-bold mb-3"><i class="bi bi-box-arrow-in-down me-2 text-success"></i>Registrar Entrada</h6>
+
+    <!-- Toggle manual/cámara -->
+    <div class="btn-group w-100 mb-3">
+        <button class="btn btn-sm" [class.btn-primary]="inputMode === 'manual'"
+            [class.btn-outline-primary]="inputMode !== 'manual'" (click)="setInputMode('manual')">
+            <i class="bi bi-keyboard me-1"></i>Manual
+        </button>
+        <button class="btn btn-sm" [class.btn-primary]="inputMode === 'camera'"
+            [class.btn-outline-primary]="inputMode !== 'camera'" (click)="setInputMode('camera')">
+            <i class="bi bi-camera me-1"></i>Cámara
+        </button>
+    </div>
+
+    <!-- Escáner -->
+    @if (scannerEnabled) {
+    <div class="scanner-wrapper rounded overflow-hidden mb-3">
+        <zxing-scanner [enable]="scannerEnabled" [formats]="formats" (scanSuccess)="onCodeScanned($event)">
+        </zxing-scanner>
+    </div>
+    <p class="text-muted small text-center">Apunta al código de barras o QR</p>
+    }
+
+    <form [formGroup]="inputForm">
+        <!-- Número de parte -->
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Número de parte</label>
+            <div class="input-group">
+                <input type="text" class="form-control" formControlName="partNumber" placeholder="Ej. ABC-1234">
+                <button type="button" class="btn btn-outline-secondary" (click)="openCameraFor('partNumber')"
+                    title="Escanear">
+                    <i class="bi bi-camera"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Ubicación -->
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Ubicación</label>
+            <input type="text" class="form-control" formControlName="location" placeholder="Ej. Rack A-3">
+        </div>
+
+        <!-- Cantidad -->
+        <div class="mb-4">
+            <label class="form-label fw-semibold">Cantidad</label>
+            <input type="number" class="form-control form-control-lg text-center" formControlName="quantity" min="1">
+        </div>
+
+        <button class="btn btn-success w-100 btn-lg" (click)="saveInput()"
+            [disabled]="inputForm.invalid || loading">
+            @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+            Confirmar Entrada
+        </button>
+    </form>
+    }
+
+    <!-- ══════════════ SALIDA ══════════════ -->
+    @if (view === 'output') {
+    <button class="btn btn-link ps-0 mb-3" (click)="goBack()">
+        <i class="bi bi-arrow-left me-1"></i>Cancelar
+    </button>
+    <h6 class="fw-bold mb-3">
+        <i class="bi bi-box-arrow-up me-2 text-warning"></i>Registrar Salida
+    </h6>
+
+    <!-- ── Paso 1: Ingresar número de parte ── -->
+    @if (outputStep === 'form') {
+    <div class="mb-3">
+        <label class="form-label fw-semibold">Número de parte</label>
+        <div class="input-group">
+            <input type="text" class="form-control" [formControl]="$any(outputForm.get('partNumber'))"
+                placeholder="Ej. ABC-1234">
+            <button type="button" class="btn" [class.btn-primary]="scannerEnabled && scanTarget === 'partNumber'"
+                [class.btn-outline-secondary]="!(scannerEnabled && scanTarget === 'partNumber')"
+                (click)="openCameraFor('partNumber')">
+                <i class="bi" [class.bi-camera-video-fill]="scannerEnabled && scanTarget === 'partNumber'"
+                    [class.bi-camera]="!(scannerEnabled && scanTarget === 'partNumber')">
+                </i>
+            </button>
+        </div>
+    </div>
+
+    @if (scannerEnabled) {
+    <div class="scanner-wrapper rounded overflow-hidden mb-3">
+        <zxing-scanner [enable]="scannerEnabled" [formats]="formats" (scanSuccess)="onCodeScanned($event)">
+        </zxing-scanner>
+    </div>
+    <p class="text-muted small text-center">Apunta al código de barras o QR</p>
+    }
+
+    <button class="btn btn-warning w-100" (click)="searchRolls()"
+        [disabled]="!outputForm.get('partNumber')?.value || loading">
+        @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+        <i class="bi bi-search me-2"></i>Buscar
+    </button>
+    }
+
+    <!-- ── Paso 2: Seleccionar ubicación ── -->
+    @if (outputStep === 'ubicaciones') {
+    <div class="alert alert-info py-2 small mb-3">
+        <i class="bi bi-info-circle me-1"></i>
+        Se encontraron <strong>{{ foundRolls.length }} ubicaciones</strong>
+        para <strong>{{ outputForm.get('partNumber')?.value }}</strong>.
+        Selecciona de cuál retirar:
+    </div>
+
+    <div class="list-group">
+        @for (roll of foundRolls; track roll.id) {
+        <button class="list-group-item list-group-item-action" (click)="selectRoll(roll)">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="fw-semibold">
+                        <i class="bi bi-geo-alt me-1 text-danger"></i>{{ roll.location }}
+                    </div>
+                    <small class="text-muted">{{ roll.partNumber }}</small>
+                </div>
+                <span class="badge fs-6" [class.bg-success]="roll.quantity > 10"
+                    [class.bg-warning]="roll.quantity > 0 && roll.quantity <= 10"
+                    [class.bg-danger]="roll.quantity === 0">
+                    {{ roll.quantity }} pzs
+                </span>
+            </div>
+        </button>
+        }
+    </div>
+
+    <button class="btn btn-outline-secondary w-100 mt-3" (click)="outputStep = 'form'">
+        <i class="bi bi-arrow-left me-1"></i>Cambiar número de parte
+    </button>
+    }
+
+    <!-- ── Paso 3: Confirmar cantidad ── -->
+    @if (outputStep === 'confirmar' && selectedRoll) {
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <div class="fw-bold fs-6">{{ selectedRoll.partNumber }}</div>
+            <small class="text-muted d-block">
+                <i class="bi bi-geo-alt me-1"></i>{{ selectedRoll.location }}
+            </small>
+            <div class="mt-2">
+                <span class="badge fs-6" [class.bg-success]="selectedRoll.quantity > 10"
+                    [class.bg-warning]="selectedRoll.quantity > 0 && selectedRoll.quantity <= 10"
+                    [class.bg-danger]="selectedRoll.quantity === 0">
+                    Disponible: {{ selectedRoll.quantity }} pzs
+                </span>
+            </div>
+        </div>
+    </div>
+
+    @if (error) {
+    <div class="alert alert-danger py-2 small">{{ error }}</div>
+    }
+
+    <div class="mb-4">
+        <label class="form-label fw-semibold">Cantidad a retirar</label>
+        <input type="number" class="form-control form-control-lg text-center"
+            [formControl]="$any(outputForm.get('quantity'))" min="1" [max]="selectedRoll.quantity">
+        <div class="form-text text-center">
+            Máximo {{ selectedRoll.quantity }} pzs
+        </div>
+    </div>
+
+    <div class="d-grid gap-2">
+        <button class="btn btn-warning btn-lg" (click)="saveOutput()"
+            [disabled]="!outputForm.get('quantity')?.value || loading">
+            @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+            <i class="bi bi-box-arrow-up me-2"></i>Confirmar Salida
+        </button>
+        <button class="btn btn-outline-secondary"
+            (click)="outputStep = foundRolls.length > 1 ? 'ubicaciones' : 'form'">
+            <i class="bi bi-arrow-left me-1"></i>Volver
+        </button>
+    </div>
+    }
+    }
+
+    <!-- ══════════════ HISTORIAL ══════════════ -->
+    @if (view === 'history' && selectedRoll) {
+    <button class="btn btn-link ps-0 mb-2" (click)="goBack()">
+        <i class="bi bi-arrow-left me-1"></i>Volver
+    </button>
+    <h6 class="fw-bold mb-3">
+        <i class="bi bi-clock-history me-2"></i>Historial — {{ selectedRoll.partNumber }}
+    </h6>
+
+    <div class="list-group">
+        @for (mov of movements$ | async; track mov.id) {
+        <div class="list-group-item">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <span class="badge me-2" [class.bg-success]="mov.type === 'entrada'"
+                        [class.bg-warning]="mov.type === 'salida'">
+                        {{ mov.type }}
+                    </span>
+                    <span class="fw-semibold">{{ mov.quantity }} pzs</span>
+                    <div class="small text-muted mt-1">
+                        <i class="bi bi-person me-1"></i>{{ mov.userEmail }}
+                    </div>
+                    <div class="small text-muted">
+                        <i class="bi bi-calendar me-1"></i>
+                        {{ mov.date?.toDate ? (mov.date.toDate() | date:'dd/MM/yyyy HH:mm') : '—' }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        }
+    </div>
+    }
+
+</div>
+
+<!-- ══════════════ MODAL EDITAR ══════════════ -->
+@if (showEditModal) {
+<div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5)">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar rollo</h5>
+                <button type="button" class="btn-close" (click)="showEditModal = false"></button>
+            </div>
+            <div class="modal-body">
+                <form [formGroup]="editForm">
+                    <div class="mb-3">
+                        <label class="form-label">Número de parte</label>
+                        <input type="text" class="form-control" formControlName="partNumber">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Cantidad</label>
+                        <input type="number" class="form-control" formControlName="quantity" min="0">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Ubicación</label>
+                        <input type="text" class="form-control" formControlName="location">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" (click)="showEditModal = false">Cancelar</button>
+                <button class="btn btn-primary" (click)="saveEdit()" [disabled]="editForm.invalid || loading">
+                    @if (loading) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+}
