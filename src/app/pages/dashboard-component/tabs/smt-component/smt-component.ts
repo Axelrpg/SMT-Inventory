@@ -54,7 +54,7 @@ export class SmtComponent implements OnInit {
   // Formulario entrada
   inputForm = this.fb.group({
     partNumber: ['', Validators.required],
-    quantity: [1, [Validators.required, Validators.min(1)]],
+    quantity: [null, [Validators.required, Validators.min(1)]],
     location: ['', Validators.required],
   });
 
@@ -94,7 +94,7 @@ export class SmtComponent implements OnInit {
     this.foundRolls = [];
     this.selectedRoll = null;
     this.error = '';
-    this.inputForm.reset({ quantity: 1 });
+    this.inputForm.reset({ quantity: null });
     this.outputForm.reset({ quantity: 1 });
   }
 
@@ -102,7 +102,7 @@ export class SmtComponent implements OnInit {
     this.view = 'input';
     this.inputMode = 'manual';
     this.error = '';
-    this.inputForm.reset({ quantity: 1 });
+    this.inputForm.reset({ quantity: null });
   }
 
   openOutput() {
