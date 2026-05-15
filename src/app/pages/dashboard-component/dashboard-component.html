@@ -19,9 +19,9 @@
             </button>
         </li>
         <li class="nav-item">
-            <button class="nav-link" [class.active]="activeTab === 'tab2'" (click)="setTab('tab2')">
+            <button class="nav-link" [class.active]="activeTab === 'BOM'" (click)="setTab('BOM')">
                 <i class="bi bi-list me-1"></i>
-                Tab 2
+                BOM
             </button>
         </li>
         @if (isAdmin) {
@@ -36,10 +36,13 @@
 
     <div class="container-fluid p-3 flex-grow-1">
         @if (activeTab === 'SMT') {
-            <app-smt-component />
+        <app-smt-component />
+        }
+        @if (activeTab === 'BOM') {
+        <app-bom-component />
         }
         @if (activeTab === 'users' && isAdmin) {
-            <app-users-component />
+        <app-users-component />
         }
     </div>
 </div>

@@ -1,0 +1,338 @@
+<div class="bom-container">
+
+    @if (success) {
+    <div class="alert alert-success py-2 small">{{ success }}</div>
+    }
+    @if (error) {
+    <div class="alert alert-danger py-2 small">{{ error }}</div>
+    }
+
+    <!-- ══════════════ LISTA ══════════════ -->
+    <!-- ══════════════ LISTA ══════════════ -->
+    @if (view === 'list') {
+    <h6 class="fw-bold mb-3"><i class="bi bi-journal-text me-2"></i>BOMs</h6>
+
+    <div class="d-grid gap-2 mb-3">
+        <button class="btn btn-success" (click)="openCreate()">
+            <i class="bi bi-plus-circle me-2"></i>Registrar Entrada
+        </button>
+        <button class="btn btn-warning" (click)="openSelectOutput()">
+            <i class="bi bi-box-arrow-up me-2"></i>Registrar Salida
+        </button>
+    </div>
+
+    <div class="list-group">
+        @for (bom of boms; track bom.id) {
+        <div class="list-group-item">
+            <div class="d-flex justify-content-between align-items-start">
+                <div (click)="openDetail(bom)" style="cursor:pointer" class="flex-grow-1">
+                    <div class="fw-semibold">{{ bom.name }}</div>
+                    @if (bom.description) {
+                    <small class="text-muted">{{ bom.description }}</small>
+                    }
+                    <div class="mt-1">
+                        <span class="badge bg-secondary">
+                            {{ bom.items.length }} componentes
+                        </span>
+                    </div>
+                </div>
+                <div class="d-flex gap-1 ms-2">
+                    <button class="btn btn-outline-secondary btn-sm" (click)="openHistory(bom)" title="Historial">
+                        <i class="bi bi-clock-history"></i>
+                    </button>
+                    @if (isAdmin) {
+                    <button class="btn btn-outline-primary btn-sm" (click)="openEdit(bom)">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-outline-danger btn-sm" (click)="deleteBom(bom)">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                    }
+                </div>
+            </div>
+        </div>
+        }
+        @if (boms.length === 0) {
+        <div class="text-center text-muted py-4">
+            <i class="bi bi-journal-x" style="font-size:2rem"></i>
+            <p class="mt-2 small">No hay BOMs registrados</p>
+        </div>
+        }
+    </div>
+    }
+
+    <!-- ══════════════ SELECCIONAR BOM PARA SALIDA ══════════════ -->
+    @if (view === 'select-output') {
+    <button class="btn btn-link ps-0 mb-3" (click)="goBack()">
+        <i class="bi bi-arrow-left me-1"></i>Cancelar
+    </button>
+    <h6 class="fw-bold mb-3">
+        <i class="bi bi-box-arrow-up me-2 text-warning"></i>Selecciona el BOM
+    </h6>
+
+    <div class="list-group">
+        @for (bom of boms; track bom.id) {
+        <button class="list-group-item list-group-item-action" (click)="openOutput(bom)">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="fw-semibold">{{ bom.name }}</div>
+                    @if (bom.description) {
+                    <small class="text-muted">{{ bom.description }}</small>
+                    }
+                </div>
+                <span class="badge bg-secondary">
+                    {{ bom.items.length }} comp.
+                </span>
+            </div>
+        </button>
+        }
+        @if (boms.length === 0) {
+        <div class="text-center text-muted py-4">
+            <i class="bi bi-journal-x" style="font-size:2rem"></i>
+            <p class="mt-2 small">No hay BOMs registrados</p>
+        </div>
+        }
+    </div>
+    }
+
+    <!-- ══════════════ DETALLE ══════════════ -->
+    @if (view === 'detail' && selectedBom) {
+    <button class="btn btn-link ps-0 mb-2" (click)="goBack()">
+        <i class="bi bi-arrow-left me-1"></i>Volver
+    </button>
+    <h6 class="fw-bold mb-1">{{ selectedBom.name }}</h6>
+    @if (selectedBom.description) {
+    <p class="text-muted small mb-3">{{ selectedBom.description }}</p>
+    }
+
+    @if (loading) {
+    <div class="text-center py-3">
+        <span class="spinner-border spinner-border-sm"></span>
+        <span class="ms-2 small">Verificando stock...</span>
+    </div>
+    }
+
+    <div class="list-group">
+        @for (item of stockItems; track item.partNumber) {
+        <div class="list-group-item">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="fw-semibold">{{ item.partNumber }}</div>
+                    <small class="text-muted">Necesario: {{ item.quantityRequired }} pzs</small>
+                    @for (roll of item.rolls; track roll.id) {
+                    <div class="small mt-1">
+                        <i class="bi bi-geo-alt me-1 text-danger"></i>
+                        {{ roll.location }}
+                        <span class="badge ms-1" [class.bg-success]="roll.stock > 10"
+                            [class.bg-warning]="roll.stock > 0 && roll.stock <= 10"
+                            [class.bg-danger]="roll.stock === 0">
+                            {{ roll.stock }} pzs
+                        </span>
+                    </div>
+                    }
+                </div>
+                <span class="badge fs-6 ms-2" [class.bg-success]="item.hasEnoughStock"
+                    [class.bg-danger]="!item.hasEnoughStock">
+                    {{ item.totalStock }} total
+                </span>
+            </div>
+        </div>
+        }
+    </div>
+    }
+
+    <!-- ══════════════ CREAR / EDITAR ══════════════ -->
+    @if (view === 'create' || view === 'edit') {
+    <button class="btn btn-link ps-0 mb-3" (click)="goBack()">
+        <i class="bi bi-arrow-left me-1"></i>Cancelar
+    </button>
+    <h6 class="fw-bold mb-3">
+        {{ view === 'create' ? 'Nuevo BOM' : 'Editar BOM' }}
+    </h6>
+
+    <form [formGroup]="bomForm">
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Nombre</label>
+            <input type="text" class="form-control" formControlName="name" placeholder="Ej. PCB-001">
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Descripción</label>
+            <input type="text" class="form-control" formControlName="description" placeholder="Opcional">
+        </div>
+    </form>
+
+    <!-- Buscador de números de parte -->
+    <div class="mb-2">
+        <label class="form-label fw-semibold">Agregar componentes</label>
+        <input type="text" class="form-control" placeholder="Buscar número de parte..." [(ngModel)]="searchPart"
+            (input)="filterParts()">
+    </div>
+
+    <div class="list-group mb-3" style="max-height:200px; overflow-y:auto">
+        @for (roll of filteredRolls; track roll.partNumber) {
+        <button class="list-group-item list-group-item-action py-2" (click)="addItem(roll.partNumber)">
+            <i class="bi bi-plus-circle me-2 text-primary"></i>
+            {{ roll.partNumber }}
+        </button>
+        }
+        @if (filteredRolls.length === 0) {
+        <div class="list-group-item text-muted small text-center">
+            No se encontraron números de parte
+        </div>
+        }
+    </div>
+
+    <!-- Items agregados -->
+    @if (bomItems.length > 0) {
+    <label class="form-label fw-semibold">Receta</label>
+    <div class="list-group mb-3">
+        @for (item of bomItems; track item.partNumber) {
+        <div class="list-group-item">
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="fw-semibold small">{{ item.partNumber }}</span>
+                <div class="d-flex align-items-center gap-2">
+                    <input type="number" class="form-control form-control-sm text-center" style="width:80px" min="1"
+                        [value]="item.quantityRequired"
+                        (change)="updateQuantity(item.partNumber, +$any($event.target).value)">
+                    <button class="btn btn-outline-danger btn-sm" (click)="removeItem(item.partNumber)">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        }
+    </div>
+    }
+
+    <button class="btn btn-primary w-100" (click)="saveBom()"
+        [disabled]="bomForm.invalid || bomItems.length === 0 || loading">
+        @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+        {{ view === 'create' ? 'Crear BOM' : 'Guardar cambios' }}
+    </button>
+    }
+
+    <!-- ══════════════ SALIDA ══════════════ -->
+    @if (view === 'output' && selectedBom) {
+    <button class="btn btn-link ps-0 mb-3" (click)="goBack()">
+        <i class="bi bi-arrow-left me-1"></i>Cancelar
+    </button>
+    <h6 class="fw-bold mb-3">
+        <i class="bi bi-box-arrow-up me-2 text-warning"></i>
+        Salida — {{ selectedBom.name }}
+    </h6>
+
+    <!-- Paso 1: Cantidad de BOMs -->
+    @if (outputStep === 'quantity') {
+    <p class="text-muted small mb-3">
+        ¿Cuántos BOMs se van a producir? El stock de cada componente
+        se multiplicará por esta cantidad.
+    </p>
+
+    <div class="mb-4">
+        <label class="form-label fw-semibold">Cantidad a producir</label>
+        <input type="number" class="form-control form-control-lg text-center"
+            [formControl]="$any(outputForm.get('quantity'))" min="1">
+    </div>
+
+    <button class="btn btn-warning w-100" (click)="checkStockForOutput()" [disabled]="outputForm.invalid || loading">
+        @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+        <i class="bi bi-search me-2"></i>Verificar stock
+    </button>
+    }
+
+    <!-- Paso 2: Selección de ubicación -->
+    @if (outputStep === 'locations' && pendingItems[currentStockIndex]) {
+    <div class="alert alert-info py-2 small mb-3">
+        <i class="bi bi-info-circle me-1"></i>
+        Componente {{ currentStockIndex + 1 }} de {{ pendingItems.length }}
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <div class="fw-bold">{{ pendingItems[currentStockIndex].partNumber }}</div>
+            <small class="text-muted">
+                Necesita: {{ pendingItems[currentStockIndex].totalRequired }} pzs
+            </small>
+        </div>
+    </div>
+
+    <p class="small fw-semibold mb-2">Selecciona la ubicación:</p>
+    <div class="list-group">
+        @for (roll of pendingItems[currentStockIndex].rolls; track roll.id) {
+        <button class="list-group-item list-group-item-action"
+            [disabled]="roll.stock < pendingItems[currentStockIndex].totalRequired"
+            (click)="selectRollForItem(roll.id)">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="bi bi-geo-alt me-1 text-danger"></i>
+                    <span class="fw-semibold">{{ roll.location }}</span>
+                    @if (roll.stock < pendingItems[currentStockIndex].totalRequired) { <span
+                        class="badge bg-danger ms-2 small">Stock insuficiente</span>
+                        }
+                </div>
+                <span class="badge" [class.bg-success]="roll.stock > 10"
+                    [class.bg-warning]="roll.stock > 0 && roll.stock <= 10" [class.bg-danger]="roll.stock === 0">
+                    {{ roll.stock }} pzs
+                </span>
+            </div>
+        </button>
+        }
+    </div>
+    }
+
+    <!-- Paso 3: Confirmación -->
+    @if (outputStep === 'confirm') {
+    <div class="alert alert-warning py-2 small mb-3">
+        <i class="bi bi-exclamation-triangle me-1"></i>
+        Se descontará el stock de <strong>{{ selectedBom.items.length }} componentes</strong>
+        para <strong>{{ outputQuantity }} BOM(s)</strong>.
+    </div>
+
+    <div class="list-group mb-4">
+        @for (sel of selectedRolls; track sel.rollId) {
+        <div class="list-group-item py-2">
+            <div class="d-flex justify-content-between">
+                <span class="small fw-semibold">{{ sel.partNumber }}</span>
+                <span class="badge bg-warning text-dark">-{{ sel.quantity }} pzs</span>
+            </div>
+        </div>
+        }
+    </div>
+
+    <button class="btn btn-warning w-100 btn-lg" (click)="confirmOutput()" [disabled]="loading">
+        @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+        <i class="bi bi-check-circle me-2"></i>Confirmar Salida
+    </button>
+    }
+    }
+
+    <!-- ══════════════ HISTORIAL ══════════════ -->
+    @if (view === 'history' && selectedBom) {
+    <button class="btn btn-link ps-0 mb-2" (click)="goBack()">
+        <i class="bi bi-arrow-left me-1"></i>Volver
+    </button>
+    <h6 class="fw-bold mb-3">
+        <i class="bi bi-clock-history me-2"></i>Historial — {{ selectedBom.name }}
+    </h6>
+
+    <div class="list-group">
+        @for (mov of movements$ | async; track mov.id) {
+        <div class="list-group-item">
+            <span class="badge me-2" [class.bg-success]="mov.type === 'input'"
+                [class.bg-warning]="mov.type === 'output'">
+                {{ mov.type === 'input' ? 'entrada' : 'salida' }}
+            </span>
+            <span class="fw-semibold">x{{ mov.quantity }} BOMs</span>
+            <div class="small text-muted mt-1">
+                <i class="bi bi-person me-1"></i>{{ mov.userEmail }}
+            </div>
+            <div class="small text-muted">
+                <i class="bi bi-calendar me-1"></i>
+                {{ mov.date?.toDate ? (mov.date.toDate() | date:'dd/MM/yyyy HH:mm') : '—' }}
+            </div>
+        </div>
+        }
+    </div>
+    }
+
+</div>
