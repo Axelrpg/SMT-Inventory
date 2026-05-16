@@ -9,9 +9,19 @@
 
     <!-- ══════════════ LISTA ══════════════ -->
     @if (view === 'list') {
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold mb-0"><i class="bi bi-upc-scan me-2"></i>Rollos SMT</h6>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-success btn-sm" (click)="exportRolls()">
+                <i class="bi bi-file-earmark-excel me-1"></i>Rollos
+            </button>
+            <button class="btn btn-outline-success btn-sm" (click)="exportMovements()">
+                <i class="bi bi-file-earmark-excel me-1"></i>Movimientos
+            </button>
+        </div>
+    </div>
 
-    <h6 class="fw-bold mb-3"><i class="bi bi-upc-scan me-2"></i>Rollos SMT</h6>
-
+    <!-- Botones entrada/salida -->
     <div class="d-grid gap-2 mb-3">
         <button class="btn btn-success" (click)="openInput()">
             <i class="bi bi-box-arrow-in-down me-2"></i>Registrar Entrada
@@ -20,6 +30,64 @@
             <i class="bi bi-box-arrow-up me-2"></i>Registrar Salida
         </button>
     </div>
+
+    <!-- Búsqueda -->
+    <div class="mb-3">
+        <div class="input-group">
+            <input type="text" class="form-control" placeholder="Buscar número de parte..."
+                [(ngModel)]="searchPartNumber" maxlength="18"
+                (keyup.enter)="searchPartNumber.length === 18 && onSearch()">
+            <button class="btn" [class.btn-primary]="searchScannerEnabled"
+                [class.btn-outline-secondary]="!searchScannerEnabled" (click)="toggleSearchScanner()" title="Escanear">
+                <i class="bi" [class.bi-camera-video-fill]="searchScannerEnabled"
+                    [class.bi-camera]="!searchScannerEnabled">
+                </i>
+            </button>
+            <button class="btn btn-primary" (click)="onSearch()" [disabled]="searchPartNumber.length !== 18">
+                <i class="bi bi-search"></i>
+            </button>
+            @if (isSearching) {
+            <button class="btn btn-outline-secondary" (click)="clearSearch()">
+                <i class="bi bi-x-lg"></i>
+            </button>
+            }
+        </div>
+
+        <!-- Contador -->
+        <div class="d-flex justify-content-end mt-1">
+            <small [class.text-danger]="searchPartNumber.length > 0 && searchPartNumber.length < 18"
+                [class.text-success]="searchPartNumber.length === 18"
+                [class.text-muted]="searchPartNumber.length === 0">
+                {{ searchPartNumber.length }}/18
+            </small>
+        </div>
+
+        <!-- Escáner de búsqueda -->
+        @if (searchScannerEnabled) {
+        <div class="scanner-wrapper rounded overflow-hidden mt-2">
+            <zxing-scanner [enable]="searchScannerEnabled" [formats]="searchFormats"
+                (scanSuccess)="onSearchCodeScanned($event)">
+            </zxing-scanner>
+        </div>
+        <p class="text-muted small text-center mt-1">Apunta al código de barras o QR</p>
+        }
+
+        @if (isSearching) {
+        <div class="mt-2 small text-muted">
+            <i class="bi bi-filter me-1"></i>
+            Mostrando resultados para: <strong>{{ searchPartNumber }}</strong>
+            — {{ rolls.length }} encontrados
+        </div>
+        }
+    </div>
+
+    <!-- Lista de rollos -->
+    @if (loading) {
+    <div class="text-center py-3">
+        <span class="spinner-border spinner-border-sm me-2"></span>
+        <span class="small">Cargando...</span>
+    </div>
+    }
 
     <div class="list-group">
         @for (roll of rolls; track roll.id) {
@@ -52,13 +120,28 @@
             </div>
         </div>
         }
-        @if (rolls.length === 0) {
+
+        @if (!loading && rolls.length === 0) {
         <div class="text-center text-muted py-4">
             <i class="bi bi-inbox" style="font-size:2rem"></i>
-            <p class="mt-2 small">No hay rollos registrados</p>
+            <p class="mt-2 small">
+                {{ isSearching ? 'No se encontraron rollos' : 'No hay rollos registrados' }}
+            </p>
         </div>
         }
     </div>
+
+    <!-- Botón cargar más -->
+    @if (hasMore && !isSearching) {
+    <div class="text-center mt-3">
+        <button class="btn btn-outline-secondary btn-sm px-4" (click)="loadMore()" [disabled]="loadingMore">
+            @if (loadingMore) {
+            <span class="spinner-border spinner-border-sm me-2"></span>
+            }
+            Cargar más
+        </button>
+    </div>
+    }
     }
 
     <!-- ══════════════ ENTRADA ══════════════ -->
@@ -94,11 +177,24 @@
         <div class="mb-3">
             <label class="form-label fw-semibold">Número de parte</label>
             <div class="input-group">
-                <input type="text" class="form-control" formControlName="partNumber" placeholder="Ej. ABC-1234">
-                <button type="button" class="btn btn-outline-secondary" (click)="openCameraFor('partNumber')"
-                    title="Escanear">
-                    <i class="bi bi-camera"></i>
+                <input type="text" class="form-control" formControlName="partNumber" placeholder="18 caracteres"
+                    maxlength="18">
+                <button type="button" class="btn" [class.btn-primary]="scannerEnabled && scanTarget === 'partNumber'"
+                    [class.btn-outline-secondary]="!(scannerEnabled && scanTarget === 'partNumber')"
+                    (click)="openCameraFor('partNumber')">
+                    <i class="bi" [class.bi-camera-video-fill]="scannerEnabled && scanTarget === 'partNumber'"
+                        [class.bi-camera]="!(scannerEnabled && scanTarget === 'partNumber')">
+                    </i>
                 </button>
+            </div>
+            <!-- Contador -->
+            <div class="d-flex justify-content-end mt-1">
+                <small
+                    [class.text-danger]="(inputForm.get('partNumber')?.value?.length ?? 0) > 0 && (inputForm.get('partNumber')?.value?.length ?? 0) < 18"
+                    [class.text-success]="inputForm.get('partNumber')?.value?.length === 18"
+                    [class.text-muted]="!inputForm.get('partNumber')?.value?.length">
+                    {{ inputForm.get('partNumber')?.value?.length ?? 0 }}/18
+                </small>
             </div>
         </div>
 
@@ -111,11 +207,11 @@
         <!-- Cantidad -->
         <div class="mb-4">
             <label class="form-label fw-semibold">Cantidad</label>
-            <input type="number" class="form-control form-control-lg text-center" formControlName="quantity" min="1" placeholder="Ej. 100">
+            <input type="number" class="form-control form-control-lg text-center" formControlName="quantity" min="1"
+                placeholder="Ej. 100">
         </div>
 
-        <button class="btn btn-success w-100 btn-lg" (click)="saveInput()"
-            [disabled]="inputForm.invalid || loading">
+        <button class="btn btn-success w-100 btn-lg" (click)="saveInput()" [disabled]="inputForm.invalid || loading">
             @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
             Confirmar Entrada
         </button>
@@ -133,34 +229,46 @@
 
     <!-- ── Paso 1: Ingresar número de parte ── -->
     @if (outputStep === 'form') {
-    <div class="mb-3">
-        <label class="form-label fw-semibold">Número de parte</label>
-        <div class="input-group">
-            <input type="text" class="form-control" [formControl]="$any(outputForm.get('partNumber'))"
-                placeholder="Ej. ABC-1234">
-            <button type="button" class="btn" [class.btn-primary]="scannerEnabled && scanTarget === 'partNumber'"
-                [class.btn-outline-secondary]="!(scannerEnabled && scanTarget === 'partNumber')"
-                (click)="openCameraFor('partNumber')">
-                <i class="bi" [class.bi-camera-video-fill]="scannerEnabled && scanTarget === 'partNumber'"
-                    [class.bi-camera]="!(scannerEnabled && scanTarget === 'partNumber')">
-                </i>
-            </button>
+    <form [formGroup]="outputForm">
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Número de parte</label>
+            <div class="input-group">
+                <input type="text" class="form-control" formControlName="partNumber" placeholder="18 caracteres"
+                    maxlength="18">
+                <button type="button" class="btn" [class.btn-primary]="scannerEnabled && scanTarget === 'partNumber'"
+                    [class.btn-outline-secondary]="!(scannerEnabled && scanTarget === 'partNumber')"
+                    (click)="openCameraFor('partNumber')">
+                    <i class="bi" [class.bi-camera-video-fill]="scannerEnabled && scanTarget === 'partNumber'"
+                        [class.bi-camera]="!(scannerEnabled && scanTarget === 'partNumber')">
+                    </i>
+                </button>
+            </div>
+            <!-- Contador -->
+            <div class="d-flex justify-content-end mt-1">
+                <small
+                    [class.text-danger]="(outputForm.get('partNumber')?.value?.length ?? 0) > 0 && (outputForm.get('partNumber')?.value?.length ?? 0) < 18"
+                    [class.text-success]="outputForm.get('partNumber')?.value?.length === 18"
+                    [class.text-muted]="!outputForm.get('partNumber')?.value?.length">
+                    {{ outputForm.get('partNumber')?.value?.length ?? 0 }}/18
+                </small>
+            </div>
         </div>
-    </div>
 
-    @if (scannerEnabled) {
-    <div class="scanner-wrapper rounded overflow-hidden mb-3">
-        <zxing-scanner [enable]="scannerEnabled" [formats]="formats" (scanSuccess)="onCodeScanned($event)">
-        </zxing-scanner>
-    </div>
-    <p class="text-muted small text-center">Apunta al código de barras o QR</p>
-    }
+        <!-- Escáner -->
+        @if (scannerEnabled) {
+        <div class="scanner-wrapper rounded overflow-hidden mb-3">
+            <zxing-scanner [enable]="scannerEnabled" [formats]="formats" (scanSuccess)="onCodeScanned($event)">
+            </zxing-scanner>
+        </div>
+        <p class="text-muted small text-center">Apunta al código de barras o QR</p>
+        }
 
-    <button class="btn btn-warning w-100" (click)="searchRolls()"
-        [disabled]="!outputForm.get('partNumber')?.value || loading">
-        @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
-        <i class="bi bi-search me-2"></i>Buscar
-    </button>
+        <button class="btn btn-warning w-100" (click)="searchRolls()"
+            [disabled]="(outputForm.get('partNumber')?.value?.length ?? 0) !== 18 || loading">
+            @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+            <i class="bi bi-search me-2"></i>Buscar
+        </button>
+    </form>
     }
 
     <!-- ── Paso 2: Seleccionar ubicación ── -->
@@ -222,9 +330,10 @@
     <div class="mb-4">
         <label class="form-label fw-semibold">Cantidad a retirar</label>
         <input type="number" class="form-control form-control-lg text-center"
-            [formControl]="$any(outputForm.get('quantity'))" min="1" [max]="selectedRoll.quantity">
+            [formControl]="$any(outputForm.get('quantity'))" min="1" [max]="selectedRoll!.quantity"
+            placeholder="Ej. 100">
         <div class="form-text text-center">
-            Máximo {{ selectedRoll.quantity }} pzs
+            Máximo {{ selectedRoll!.quantity }} pzs
         </div>
     </div>
 
@@ -234,8 +343,7 @@
             @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
             <i class="bi bi-box-arrow-up me-2"></i>Confirmar Salida
         </button>
-        <button class="btn btn-outline-secondary"
-            (click)="outputStep = foundRolls.length > 1 ? 'ubicaciones' : 'form'">
+        <button class="btn btn-outline-secondary" (click)="outputStep = foundRolls.length > 1 ? 'ubicaciones' : 'form'">
             <i class="bi bi-arrow-left me-1"></i>Volver
         </button>
     </div>

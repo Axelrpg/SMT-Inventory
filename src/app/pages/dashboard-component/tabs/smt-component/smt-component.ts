@@ -1,5 +1,5 @@
 import { Component, inject, OnInit, ChangeDetectorRef } from '@angular/core';
-import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, Validators, FormsModule } from '@angular/forms';
 import { AsyncPipe, DatePipe } from '@angular/common';
 import { ZXingScannerModule } from '@zxing/ngx-scanner';
 import { BarcodeFormat } from '@zxing/library';
@@ -7,6 +7,8 @@ import { SmtService } from '../../../../core/services/smt.service';
 import { SmtRoll, SmtMovement } from '../../../../core/models/smt.model';
 import { Observable } from 'rxjs';
 import { AuthService } from '../../../../core/services/auth.service';
+import { collection, QueryDocumentSnapshot } from '@angular/fire/firestore';
+import { ExportService } from '../../../../core/services/export.service';
 
 type View = 'list' | 'input' | 'output' | 'history';
 type InputMode = 'manual' | 'camera';
@@ -14,19 +16,35 @@ type InputMode = 'manual' | 'camera';
 @Component({
   selector: 'app-smt-component',
   standalone: true,
-  imports: [ReactiveFormsModule, ZXingScannerModule, AsyncPipe, DatePipe],
+  imports: [ReactiveFormsModule, FormsModule, ZXingScannerModule, AsyncPipe, DatePipe],
   templateUrl: './smt-component.html',
   styleUrl: './smt-component.css'
 })
 export class SmtComponent implements OnInit {
   private smtService = inject(SmtService);
   private authService = inject(AuthService)
+  private exportService = inject(ExportService);
   private fb = inject(FormBuilder);
   private cdr = inject(ChangeDetectorRef);
 
   isAdmin = false;
 
   rolls: SmtRoll[] = [];
+  lastDoc: QueryDocumentSnapshot | null = null;
+  hasMore = true;
+  loadingMore = false;
+  readonly PAGE_SIZE = 10;
+
+  searchPartNumber = '';
+  isSearching = false;
+  searchScannerEnabled = false;
+  searchFormats = [
+    BarcodeFormat.QR_CODE,
+    BarcodeFormat.CODE_128,
+    BarcodeFormat.EAN_13,
+    BarcodeFormat.CODE_39
+  ];
+
   movements$?: Observable<SmtMovement[]>;
   selectedRoll: SmtRoll | null = null;
   outputStep: 'form' | 'ubicaciones' | 'confirmar' = 'form';
@@ -53,39 +71,111 @@ export class SmtComponent implements OnInit {
 
   // Formulario entrada
   inputForm = this.fb.group({
-    partNumber: ['', Validators.required],
+    partNumber: ['', [Validators.required, Validators.minLength(18), Validators.maxLength(18)]],
     quantity: [null, [Validators.required, Validators.min(1)]],
     location: ['', Validators.required],
   });
 
   // Formulario salida
   outputForm = this.fb.group({
-    partNumber: ['', Validators.required],
+    partNumber: ['', [Validators.required, Validators.minLength(18), Validators.maxLength(18)]],
+    quantity: [null, [Validators.required, Validators.min(1)]],
     location: ['', Validators.required],
-    quantity: [1, [Validators.required, Validators.min(1)]],
   });
 
   // Formulario edición
   editForm = this.fb.group({
-    partNumber: ['', Validators.required],
+    partNumber: ['', Validators.required, Validators.minLength(18), Validators.maxLength(18)],
     quantity: [0, [Validators.required, Validators.min(0)]],
     location: ['', Validators.required],
   });
 
-  ngOnInit() {
+  async ngOnInit() {
     this.authService.currentUserWithRole$.subscribe(snap => {
       const data = (snap as any)?.data();
       this.isAdmin = data?.role === 'admin';
       this.cdr.detectChanges();
-    })
-
-    this.smtService.getRolls().subscribe(rolls => {
-      this.rolls = rolls;
-      this.cdr.detectChanges();
     });
+
+    await this.loadFirstPage();
   }
 
-  // ── Navegación ───────────────────────────────────────
+  // ── Carga inicial ────────────────────────────────────
+  async loadFirstPage() {
+    this.loading = true;
+    try {
+      const result = await this.smtService.getRollsPaginated(this.PAGE_SIZE);
+      this.rolls = result.rolls;
+      this.lastDoc = result.lastDoc;
+      this.hasMore = result.rolls.length === this.PAGE_SIZE;
+    } catch (e: any) {
+      this.error = e.message;
+    } finally {
+      this.loading = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  // ── Cargar más ───────────────────────────────────────
+  async loadMore() {
+    if (!this.lastDoc || this.loadingMore) return;
+    this.loadingMore = true;
+    try {
+      const result = await this.smtService.getRollsNextPage(this.PAGE_SIZE, this.lastDoc);
+      this.rolls = [...this.rolls, ...result.rolls];
+      this.lastDoc = result.lastDoc;
+      this.hasMore = result.rolls.length === this.PAGE_SIZE;
+    } catch (e: any) {
+      this.error = e.message;
+    } finally {
+      this.loadingMore = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  // ── Búsqueda ─────────────────────────────────────────
+  async onSearch() {
+    if (this.searchPartNumber.trim().length !== 18) {
+      if (!this.searchPartNumber.trim()) {
+        this.isSearching = false;
+        await this.loadFirstPage();
+      }
+      return;
+    }
+
+    this.isSearching = true;
+    this.loading = true;
+    try {
+      this.rolls = await this.smtService.searchRollsByPartNumber(this.searchPartNumber.trim());
+      this.hasMore = false;
+    } catch (e: any) {
+      this.error = e.message;
+    } finally {
+      this.loading = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async clearSearch() {
+    this.searchPartNumber = '';
+    this.isSearching = false;
+    this.searchScannerEnabled = false;
+    await this.loadFirstPage();
+  }
+
+  // ── Escáner de búsqueda ──────────────────────────────
+  toggleSearchScanner() {
+    this.searchScannerEnabled = !this.searchScannerEnabled;
+  }
+
+  async onSearchCodeScanned(code: string) {
+    if (!code) return;
+    this.searchScannerEnabled = false;
+    this.searchPartNumber = code.substring(0, 18); // recorta si el código es más largo
+    await this.onSearch();
+  }
+
+  // ── Actualizar goBack para recargar lista ─────────────
   goBack() {
     this.view = 'list';
     this.scannerEnabled = false;
@@ -95,7 +185,11 @@ export class SmtComponent implements OnInit {
     this.selectedRoll = null;
     this.error = '';
     this.inputForm.reset({ quantity: null });
-    this.outputForm.reset({ quantity: 1 });
+    this.outputForm.reset({ quantity: null });
+
+    if (!this.isSearching) {
+      this.loadFirstPage(); // ← solo una vez aquí
+    }
   }
 
   openInput() {
@@ -112,7 +206,7 @@ export class SmtComponent implements OnInit {
     this.selectedRoll = null;
     this.inputMode = 'manual';
     this.error = '';
-    this.outputForm.reset({ quantity: 1 });
+    this.outputForm.reset({ quantity: null });
   }
 
   // ── Escáner ──────────────────────────────────────────
@@ -138,17 +232,19 @@ export class SmtComponent implements OnInit {
     this.scannerEnabled = false;
     this.inputMode = 'manual';
 
+    const trimmed = code.substring(0, 18); // ← recorta si el escáner devuelve más
+
     if (this.view === 'input') {
       if (this.scanTarget === 'partNumber') {
-        this.inputForm.patchValue({ partNumber: code });
+        this.inputForm.patchValue({ partNumber: trimmed });
       }
     }
 
     if (this.view === 'output') {
       if (this.scanTarget === 'partNumber') {
-        this.outputForm.patchValue({ partNumber: code });
+        this.outputForm.patchValue({ partNumber: trimmed });
       } else if (this.scanTarget === 'location') {
-        this.outputForm.patchValue({ location: code });
+        this.outputForm.patchValue({ location: trimmed });
       }
     }
 
@@ -180,7 +276,7 @@ export class SmtComponent implements OnInit {
       } else {
         const newId = await this.smtService.addRoll({
           partNumber: partNumber!,
-          quantity: quantity!,
+          quantity: 0,        // ← siempre 0, registerMovement sumará
           location: location!
         });
 
@@ -243,7 +339,7 @@ export class SmtComponent implements OnInit {
 
   selectRoll(roll: SmtRoll) {
     this.selectedRoll = roll;
-    this.outputForm.patchValue({ location: roll.location, quantity: 1 });
+    this.outputForm.patchValue({ location: roll.location, quantity: null });
     this.outputStep = 'confirmar';
     this.cdr.detectChanges();
   }
@@ -312,6 +408,7 @@ export class SmtComponent implements OnInit {
       this.error = e.message || 'Error al actualizar';
     } finally {
       this.loading = false;
+      await this.loadFirstPage();
       this.cdr.detectChanges();
     }
   }
@@ -326,7 +423,38 @@ export class SmtComponent implements OnInit {
     } catch (e: any) {
       this.error = e.message;
     } finally {
+      await this.loadFirstPage();
       this.cdr.detectChanges();
     }
+  }
+
+  // ── Exportar a Excel ─────────────────────────────────
+  async exportRolls() {
+    // Cargar todos los rollos sin paginado
+    const ref = collection(this.smtService['firestore'], 'smt_rolls');
+    // Mejor agregar un método en el servicio
+    const allRolls = await this.smtService.getAllRolls();
+
+    const data = allRolls.map(r => ({
+      'Número de Parte': r.partNumber,
+      'Cantidad': r.quantity,
+      'Ubicación': r.location,
+    }));
+
+    this.exportService.exportToExcel(data, 'SMT_Rollos', 'Rollos');
+  }
+
+  async exportMovements() {
+    const allMovements = await this.smtService.getAllMovementsOnce();
+
+    const data = allMovements.map(m => ({
+      'Número de Parte': m.partNumber,
+      'Tipo': m.type === 'entrada' ? 'Entrada' : 'Salida',
+      'Cantidad': m.quantity,
+      'Usuario': m.userEmail,
+      'Fecha': m.date?.toDate ? m.date.toDate().toLocaleString('es-MX') : '—',
+    }));
+
+    this.exportService.exportToExcel(data, 'SMT_Movimientos', 'Movimientos');
   }
 }
