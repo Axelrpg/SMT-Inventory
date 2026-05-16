@@ -8,9 +8,18 @@
     }
 
     <!-- ══════════════ LISTA ══════════════ -->
-    <!-- ══════════════ LISTA ══════════════ -->
     @if (view === 'list') {
-    <h6 class="fw-bold mb-3"><i class="bi bi-journal-text me-2"></i>BOMs</h6>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold mb-0"><i class="bi bi-upc-scan me-2"></i>BOMS</h6>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-success btn-sm" (click)="exportBoms()">
+                <i class="bi bi-file-earmark-excel me-1"></i>BOMs
+            </button>
+            <button class="btn btn-outline-success btn-sm" (click)="exportBomMovements()">
+                <i class="bi bi-file-earmark-excel me-1"></i>Movimientos
+            </button>
+        </div>
+    </div>
 
     <div class="d-grid gap-2 mb-3">
         <button class="btn btn-success" (click)="openCreate()">
@@ -20,6 +29,37 @@
             <i class="bi bi-box-arrow-up me-2"></i>Registrar Salida
         </button>
     </div>
+
+    <!-- Búsqueda de BOMs -->
+    <div class="mb-3">
+        <div class="input-group">
+            <input type="text" class="form-control" placeholder="Buscar BOM..." [(ngModel)]="searchBomName"
+                maxlength="18" (keyup.enter)="searchBomName.length === 18 && onSearchBoms()">
+            <button class="btn btn-primary" (click)="onSearchBoms()" [disabled]="searchBomName.length !== 18">
+                <i class="bi bi-search"></i>
+            </button>
+            @if (isSearchingBoms) {
+            <button class="btn btn-outline-secondary" (click)="clearBomSearch()">
+                <i class="bi bi-x-lg"></i>
+            </button>
+            }
+        </div>
+
+        <!-- Contador -->
+        <div class="d-flex justify-content-end mt-1">
+            <small [class.text-danger]="searchBomName.length > 0 && searchBomName.length < 18"
+                [class.text-success]="searchBomName.length === 18" [class.text-muted]="searchBomName.length === 0">
+                {{ searchBomName.length }}/18
+            </small>
+        </div>
+    </div>
+
+    @if (loading) {
+    <div class="text-center py-3">
+        <span class="spinner-border spinner-border-sm me-2"></span>
+        <span class="small">Cargando...</span>
+    </div>
+    }
 
     <div class="list-group">
         @for (bom of boms; track bom.id) {
@@ -31,9 +71,7 @@
                     <small class="text-muted">{{ bom.description }}</small>
                     }
                     <div class="mt-1">
-                        <span class="badge bg-secondary">
-                            {{ bom.items.length }} componentes
-                        </span>
+                        <span class="badge bg-secondary">{{ bom.items.length }} componentes</span>
                     </div>
                 </div>
                 <div class="d-flex gap-1 ms-2">
@@ -52,13 +90,26 @@
             </div>
         </div>
         }
-        @if (boms.length === 0) {
+        @if (!loading && boms.length === 0) {
         <div class="text-center text-muted py-4">
             <i class="bi bi-journal-x" style="font-size:2rem"></i>
-            <p class="mt-2 small">No hay BOMs registrados</p>
+            <p class="mt-2 small">
+                {{ isSearchingBoms ? 'No se encontraron BOMs' : 'No hay BOMs registrados' }}
+            </p>
         </div>
         }
     </div>
+
+    @if (hasMoreBoms && !isSearchingBoms) {
+    <div class="text-center mt-3">
+        <button class="btn btn-outline-secondary btn-sm px-4" (click)="loadMoreBoms()" [disabled]="loadingMoreBoms">
+            @if (loadingMoreBoms) {
+            <span class="spinner-border spinner-border-sm me-2"></span>
+            }
+            Cargar más
+        </button>
+    </div>
+    }
     }
 
     <!-- ══════════════ SELECCIONAR BOM PARA SALIDA ══════════════ -->
@@ -107,18 +158,34 @@
 
     @if (loading) {
     <div class="text-center py-3">
-        <span class="spinner-border spinner-border-sm"></span>
-        <span class="ms-2 small">Verificando stock...</span>
+        <span class="spinner-border spinner-border-sm me-2"></span>
+        <span class="small">Verificando stock...</span>
     </div>
     }
 
+    @if (!loading) {
+    <!-- Leyenda -->
+    <div class="d-flex gap-2 mb-2 small">
+        <span class="badge bg-success">En SMT</span>
+        <span class="badge bg-secondary">No en SMT</span>
+    </div>
+
     <div class="list-group">
-        @for (item of stockItems; track item.partNumber) {
+        @for (item of sortedStockItems; track item.partNumber) {
         <div class="list-group-item">
             <div class="d-flex justify-content-between align-items-start">
-                <div>
-                    <div class="fw-semibold">{{ item.partNumber }}</div>
-                    <small class="text-muted">Necesario: {{ item.quantityRequired }} pzs</small>
+                <div class="flex-grow-1">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fw-semibold">{{ item.partNumber }}</span>
+                        @if (item.totalStock === 0) {
+                        <span class="badge bg-secondary small">No en SMT</span>
+                        }
+                    </div>
+                    <small class="text-muted d-block">
+                        Necesario: {{ item.quantityRequired }} pzs
+                    </small>
+
+                    <!-- Ubicaciones -->
                     @for (roll of item.rolls; track roll.id) {
                     <div class="small mt-1">
                         <i class="bi bi-geo-alt me-1 text-danger"></i>
@@ -131,13 +198,95 @@
                     </div>
                     }
                 </div>
-                <span class="badge fs-6 ms-2" [class.bg-success]="item.hasEnoughStock"
-                    [class.bg-danger]="!item.hasEnoughStock">
-                    {{ item.totalStock }} total
-                </span>
+
+                <div class="d-flex flex-column align-items-end gap-1 ms-2">
+                    <!-- Stock total -->
+                    <span class="badge fs-6" [class.bg-success]="item.hasEnoughStock"
+                        [class.bg-danger]="!item.hasEnoughStock">
+                        {{ item.totalStock }} total
+                    </span>
+
+                    <!-- Botón salida individual solo si existe en SMT -->
+                    @if (item.totalStock > 0) {
+                    <button class="btn btn-outline-warning btn-sm" (click)="openSingleOutput(item)">
+                        <i class="bi bi-box-arrow-up me-1"></i>Salida
+                    </button>
+                    }
+                </div>
             </div>
         </div>
         }
+    </div>
+    }
+    }
+
+    <!-- ══════════════ MODAL SALIDA INDIVIDUAL ══════════════ -->
+    @if (showSingleOutputModal && singleOutputItem) {
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-box-arrow-up me-2 text-warning"></i>Salida individual
+                    </h5>
+                    <button type="button" class="btn-close" (click)="showSingleOutputModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    @if (error) {
+                    <div class="alert alert-danger py-2 small">{{ error }}</div>
+                    }
+
+                    <div class="fw-bold mb-1">{{ singleOutputItem.partNumber }}</div>
+
+                    <!-- Selección de ubicación si hay múltiples -->
+                    @if (singleOutputItem.rolls.length > 1) {
+                    <p class="small text-muted mb-2">Selecciona la ubicación:</p>
+                    <div class="list-group mb-3">
+                        @for (roll of singleOutputItem.rolls; track roll.id) {
+                        <button class="list-group-item list-group-item-action py-2"
+                            [class.active]="singleOutputRollId === roll.id" [disabled]="roll.stock === 0"
+                            (click)="selectSingleRoll(roll.id)">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-geo-alt me-1"></i>{{ roll.location }}</span>
+                                <span class="badge" [class.bg-success]="roll.stock > 10"
+                                    [class.bg-warning]="roll.stock > 0 && roll.stock <= 10"
+                                    [class.bg-danger]="roll.stock === 0">
+                                    {{ roll.stock }} pzs
+                                </span>
+                            </div>
+                        </button>
+                        }
+                    </div>
+                    } @else {
+                    <small class="text-muted d-block mb-3">
+                        <i class="bi bi-geo-alt me-1 text-danger"></i>
+                        {{ singleOutputItem.rolls[0].location }} —
+                        {{ singleOutputItem.rolls[0].stock }} pzs disponibles
+                    </small>
+                    }
+
+                    <!-- Cantidad -->
+                    <form [formGroup]="singleOutputForm">
+                        <label class="form-label fw-semibold">Cantidad a retirar</label>
+                        <input type="number" class="form-control form-control-lg text-center" formControlName="quantity"
+                            min="1" [max]="selectedRollStock" placeholder="0">
+                        <div class="form-text text-center">
+                            Máximo {{ selectedRollStock }} pzs
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" (click)="showSingleOutputModal = false">
+                        Cancelar
+                    </button>
+                    <button class="btn btn-warning" (click)="confirmSingleOutput()"
+                        [disabled]="singleOutputForm.invalid || !singleOutputRollId || loading">
+                        @if (loading) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        Confirmar salida
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
     }
 
@@ -161,35 +310,123 @@
         </div>
     </form>
 
-    <!-- Buscador de números de parte -->
-    <div class="mb-2">
-        <label class="form-label fw-semibold">Agregar componentes</label>
-        <input type="text" class="form-control" placeholder="Buscar número de parte..." [(ngModel)]="searchPart"
-            (input)="filterParts()">
+    <!-- Toggle entre búsqueda individual y carga masiva -->
+    <div class="btn-group w-100 mb-3">
+        <button class="btn btn-sm" [class.btn-primary]="!showBulkInput" [class.btn-outline-primary]="showBulkInput"
+            (click)="showBulkInput = false">
+            <i class="bi bi-search me-1"></i>Buscar individual
+        </button>
+        <button class="btn btn-sm" [class.btn-primary]="showBulkInput" [class.btn-outline-primary]="!showBulkInput"
+            (click)="showBulkInput = true">
+            <i class="bi bi-list-ul me-1"></i>Carga masiva
+        </button>
     </div>
 
-    <div class="list-group mb-3" style="max-height:200px; overflow-y:auto">
-        @for (roll of filteredRolls; track roll.partNumber) {
-        <button class="list-group-item list-group-item-action py-2" (click)="addItem(roll.partNumber)">
-            <i class="bi bi-plus-circle me-2 text-primary"></i>
-            {{ roll.partNumber }}
-        </button>
-        }
-        @if (filteredRolls.length === 0) {
-        <div class="list-group-item text-muted small text-center">
-            No se encontraron números de parte
+    <!-- Búsqueda individual -->
+    @if (!showBulkInput) {
+    <div class="mb-2">
+        <label class="form-label fw-semibold">Agregar componentes</label>
+        <div class="input-group">
+            <input type="text" class="form-control" placeholder="Buscar o escribir número de parte..."
+                [(ngModel)]="searchPart" maxlength="18" (keyup.enter)="searchPart.length === 18 && onSearchParts()">
+            <button class="btn btn-primary" (click)="onSearchParts()" [disabled]="searchPart.length !== 18">
+                <i class="bi bi-search"></i>
+            </button>
+            @if (isSearchingParts) {
+            <button class="btn btn-outline-secondary" (click)="clearPartSearch()">
+                <i class="bi bi-x-lg"></i>
+            </button>
+            }
+        </div>
+        <div class="d-flex justify-content-end mt-1">
+            <small [class.text-danger]="searchPart.length > 0 && searchPart.length < 18"
+                [class.text-success]="searchPart.length === 18" [class.text-muted]="searchPart.length === 0">
+                {{ searchPart.length }}/18
+            </small>
+        </div>
+
+        <!-- Opción para agregar número de parte no registrado -->
+        @if (isSearchingParts && !searchPartExists && searchPart.trim()) {
+        <div class="alert alert-warning py-2 mt-2 mb-0 d-flex justify-content-between align-items-center">
+            <div>
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                <small>
+                    <strong>{{ searchPart.trim() }}</strong> no existe en SMT.
+                    ¿Agregar de todas formas?
+                </small>
+            </div>
+            <button class="btn btn-warning btn-sm ms-2" (click)="addManualItem()">
+                <i class="bi bi-plus-lg me-1"></i>Agregar
+            </button>
         </div>
         }
     </div>
 
-    <!-- Items agregados -->
+    <div class="list-group mb-3">
+        @if (loadingMoreParts && filteredRolls.length === 0) {
+        <div class="list-group-item text-center small text-muted">
+            <span class="spinner-border spinner-border-sm me-2"></span>Cargando...
+        </div>
+        }
+        @for (roll of filteredRolls; track roll.partNumber) {
+        <button class="list-group-item list-group-item-action py-2" (click)="addItem(roll.partNumber, true)">
+            <i class="bi bi-plus-circle me-2 text-primary"></i>
+            {{ roll.partNumber }}
+        </button>
+        }
+        @if (!loadingMoreParts && filteredRolls.length === 0) {
+        <div class="list-group-item text-muted small text-center">
+            No se encontraron números de parte
+        </div>
+        }
+        @if (hasMoreParts && !isSearchingParts) {
+        <button class="list-group-item list-group-item-action text-center text-primary small" (click)="loadMoreParts()"
+            [disabled]="loadingMoreParts">
+            @if (loadingMoreParts) {
+            <span class="spinner-border spinner-border-sm me-2"></span>
+            }
+            Cargar más
+        </button>
+        }
+    </div>
+    }
+
+    <!-- Carga masiva -->
+    @if (showBulkInput) {
+    <div class="mb-3">
+        <label class="form-label fw-semibold">
+            Pegar lista de números de parte
+        </label>
+        <textarea class="form-control font-monospace" rows="8" [(ngModel)]="bulkInput" placeholder="Pega aquí los números de parte, uno por línea o separados por comas:
+
+ABC123456789012345
+DEF123456789012345
+GHI123456789012345"></textarea>
+        <div class="form-text">
+            <i class="bi bi-info-circle me-1"></i>
+            Separa por salto de línea, coma o punto y coma. Cada número debe tener exactamente 18 caracteres.
+        </div>
+        <button class="btn btn-primary w-100 mt-2" (click)="processBulkInput()" [disabled]="!bulkInput.trim()">
+            <i class="bi bi-plus-lg me-1"></i>Agregar todos
+        </button>
+    </div>
+    }
+
+    <!-- Receta con notación de no registrados -->
     @if (bomItems.length > 0) {
     <label class="form-label fw-semibold">Receta</label>
     <div class="list-group mb-3">
         @for (item of bomItems; track item.partNumber) {
         <div class="list-group-item">
             <div class="d-flex justify-content-between align-items-center">
-                <span class="fw-semibold small">{{ item.partNumber }}</span>
+                <div>
+                    <span class="fw-semibold small">{{ item.partNumber }}</span>
+                    @if (!item.existsInSmt) {
+                    <span class="badge bg-warning text-dark ms-2 small">
+                        <i class="bi bi-exclamation-triangle me-1"></i>No en SMT
+                    </span>
+                    }
+                </div>
                 <div class="d-flex align-items-center gap-2">
                     <input type="number" class="form-control form-control-sm text-center" style="width:80px" min="1"
                         [value]="item.quantityRequired"

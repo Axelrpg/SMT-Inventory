@@ -1,6 +1,7 @@
 export interface BomItem {
     partNumber: string;
     quantityRequired: number;
+    existsInSmt?: boolean;
 }
 
 export interface Bom {

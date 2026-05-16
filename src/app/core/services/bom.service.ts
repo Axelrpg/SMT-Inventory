@@ -3,7 +3,10 @@ import {
     Firestore, collection, collectionData, doc,
     addDoc, updateDoc, deleteDoc, query,
     orderBy, serverTimestamp, getDocs, where,
-    getDoc
+    getDoc,
+    limit,
+    QueryDocumentSnapshot,
+    startAfter
 } from '@angular/fire/firestore';
 import { Auth } from '@angular/fire/auth';
 import { Observable } from 'rxjs';
@@ -20,6 +23,80 @@ export class BomService {
         const ref = collection(this.firestore, 'boms');
         const q = query(ref, orderBy('name', 'asc'));
         return collectionData(q, { idField: 'id' }) as Observable<Bom[]>;
+    }
+
+    // Paginado de BOMs
+    async getBomsPaginated(
+        pageSize: number,
+        lastDoc?: QueryDocumentSnapshot
+    ): Promise<{ boms: Bom[], lastDoc: QueryDocumentSnapshot | null }> {
+        const ref = collection(this.firestore, 'boms');
+        const q = lastDoc
+            ? query(ref, orderBy('name', 'asc'), startAfter(lastDoc), limit(pageSize))
+            : query(ref, orderBy('name', 'asc'), limit(pageSize));
+
+        const snap = await getDocs(q);
+        const boms = snap.docs.map(d => ({ id: d.id, ...d.data() } as Bom));
+        const last = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
+        return { boms, lastDoc: last };
+    }
+
+    // Búsqueda de BOMs por nombre
+    async searchBomsByName(name: string): Promise<Bom[]> {
+        const ref = collection(this.firestore, 'boms');
+        const q = query(
+            ref,
+            where('name', '>=', name),
+            where('name', '<=', name + '\uf8ff'),
+            orderBy('name', 'asc')
+        );
+        const snap = await getDocs(q);
+        return snap.docs.map(d => ({ id: d.id, ...d.data() } as Bom));
+    }
+
+    // Paginado de números de parte SMT para el buscador del BOM
+    async getPartNumbersPaginated(
+        pageSize: number,
+        lastDoc?: QueryDocumentSnapshot
+    ): Promise<{ rolls: SmtRoll[], lastDoc: QueryDocumentSnapshot | null }> {
+        const ref = collection(this.firestore, 'smt_rolls');
+        const q = lastDoc
+            ? query(ref, orderBy('partNumber', 'asc'), startAfter(lastDoc), limit(pageSize))
+            : query(ref, orderBy('partNumber', 'asc'), limit(pageSize));
+
+        const snap = await getDocs(q);
+        const rolls = snap.docs.map(d => ({ id: d.id, ...d.data() } as SmtRoll));
+        const last = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
+        return { rolls, lastDoc: last };
+    }
+
+    // Búsqueda de números de parte SMT
+    async searchPartNumbers(partNumber: string): Promise<SmtRoll[]> {
+        const ref = collection(this.firestore, 'smt_rolls');
+        const q = query(
+            ref,
+            where('partNumber', '>=', partNumber),
+            where('partNumber', '<=', partNumber + '\uf8ff'),
+            orderBy('partNumber', 'asc'),
+            limit(5)
+        );
+        const snap = await getDocs(q);
+        return snap.docs.map(d => ({ id: d.id, ...d.data() } as SmtRoll));
+    }
+
+    async getMovementsPaginated(
+        pageSize: number,
+        lastDoc?: QueryDocumentSnapshot
+    ): Promise<{ movements: BomMovement[], lastDoc: QueryDocumentSnapshot | null }> {
+        const ref = collection(this.firestore, 'bom_movements');
+        const q = lastDoc
+            ? query(ref, orderBy('date', 'desc'), startAfter(lastDoc), limit(pageSize))
+            : query(ref, orderBy('date', 'desc'), limit(pageSize));
+
+        const snap = await getDocs(q);
+        const movements = snap.docs.map(d => ({ id: d.id, ...d.data() } as BomMovement));
+        const last = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
+        return { movements, lastDoc: last };
     }
 
     async addBom(bom: Omit<Bom, 'id'>): Promise<string> {
@@ -130,5 +207,20 @@ export class BomService {
             userEmail: user.email,
             date: serverTimestamp()
         });
+    }
+
+    // ── Exportación ───────────────────────────────────────
+    async getAllBoms(): Promise<Bom[]> {
+        const ref = collection(this.firestore, 'boms');
+        const q = query(ref, orderBy('name', 'asc'));
+        const snap = await getDocs(q);
+        return snap.docs.map(d => ({ id: d.id, ...d.data() } as Bom));
+    }
+
+    async getAllMovementsOnce(): Promise<BomMovement[]> {
+        const ref = collection(this.firestore, 'bom_movements');
+        const q = query(ref, orderBy('date', 'desc'));
+        const snap = await getDocs(q);
+        return snap.docs.map(d => ({ id: d.id, ...d.data() } as BomMovement));
     }
 }

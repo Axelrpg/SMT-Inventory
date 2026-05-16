@@ -7,6 +7,8 @@ import { Bom, BomItem, BomStockItem } from '../../../../core/models/bom.model';
 import { SmtRoll } from '../../../../core/models/smt.model';
 import { Observable } from 'rxjs';
 import { AuthService } from '../../../../core/services/auth.service';
+import { QueryDocumentSnapshot } from '@angular/fire/firestore';
+import { ExportService } from '../../../../core/services/export.service';
 
 type View = 'list' | 'detail' | 'create' | 'edit' | 'output' | 'history' | 'select-output';
 
@@ -21,6 +23,7 @@ export class BomComponent implements OnInit {
   private bomService = inject(BomService);
   private smtService = inject(SmtService);
   private authService = inject(AuthService);
+  private exportService = inject(ExportService);
   private fb = inject(FormBuilder);
   private cdr = inject(ChangeDetectorRef);
 
@@ -34,11 +37,28 @@ export class BomComponent implements OnInit {
   stockItems: BomStockItem[] = [];
   movements$?: Observable<any[]>;
 
+  lastBomDoc: QueryDocumentSnapshot | null = null;
+  hasMoreBoms = true;
+  loadingMoreBoms = false;
+  isSearchingBoms = false;
+  searchBomName = '';
+  readonly BOM_PAGE_SIZE = 10;
+
+  lastPartDoc: QueryDocumentSnapshot | null = null;
+  hasMoreParts = true;
+  loadingMoreParts = false;
+  isSearchingParts = false;
+  searchPartExists = true;
+  readonly PART_PAGE_SIZE = 5;
+
   view: View = 'list';
   loading = false;
   error = '';
   success = '';
   searchPart = '';
+
+  bulkInput = '';
+  showBulkInput = false;
 
   // Para salida — selección de rollos por ubicación
   outputStep: 'quantity' | 'locations' | 'confirm' = 'quantity';
@@ -46,6 +66,14 @@ export class BomComponent implements OnInit {
   currentStockIndex = 0; // índice del item que está seleccionando ubicación
   selectedRolls: { partNumber: string; rollId: string; quantity: number }[] = [];
   pendingItems: BomStockItem[] = []; // items que necesitan selección de ubicación
+
+  // Salida individual
+  showSingleOutputModal = false;
+  singleOutputItem: BomStockItem | null = null;
+  singleOutputForm = this.fb.group({
+    quantity: [null, [Validators.required, Validators.min(1)]]
+  });
+  singleOutputRollId = '';
 
   bomForm = this.fb.group({
     name: ['', Validators.required],
@@ -56,25 +84,182 @@ export class BomComponent implements OnInit {
     quantity: [1, [Validators.required, Validators.min(1)]]
   });
 
-  ngOnInit() {
+  async ngOnInit() {
     this.authService.currentUserWithRole$.subscribe(snap => {
       const data = (snap as any)?.data();
       this.isAdmin = data?.role === 'admin';
       this.cdr.detectChanges();
-    })
-
-    this.bomService.getBoms().subscribe(boms => {
-      this.boms = boms;
-      this.cdr.detectChanges();
     });
 
-    this.smtService.getRolls().subscribe(rolls => {
-      this.allRolls = rolls;
+    this.bomService.getBoms().subscribe(boms => {
+      // Solo para mantener referencia actualizada al editar/eliminar
+    });
+    await this.loadFirstBoms();
+  }
+
+  async loadFirstBoms() {
+    this.loading = true;
+    try {
+      const result = await this.bomService.getBomsPaginated(this.BOM_PAGE_SIZE);
+      this.boms = result.boms;
+      this.lastBomDoc = result.lastDoc;
+      this.hasMoreBoms = result.boms.length === this.BOM_PAGE_SIZE;
+    } catch (e: any) {
+      this.error = e.message;
+    } finally {
+      this.loading = false;
       this.cdr.detectChanges();
+    }
+  }
+
+  async loadMoreBoms() {
+    if (!this.lastBomDoc || this.loadingMoreBoms) return;
+    this.loadingMoreBoms = true;
+    try {
+      const result = await this.bomService.getBomsPaginated(this.BOM_PAGE_SIZE, this.lastBomDoc);
+      this.boms = [...this.boms, ...result.boms];
+      this.lastBomDoc = result.lastDoc;
+      this.hasMoreBoms = result.boms.length === this.BOM_PAGE_SIZE;
+    } catch (e: any) {
+      this.error = e.message;
+    } finally {
+      this.loadingMoreBoms = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async onSearchBoms() {
+    if (!this.searchBomName.trim()) {
+      this.isSearchingBoms = false;
+      await this.loadFirstBoms();
+      return;
+    }
+    this.isSearchingBoms = true;
+    this.loading = true;
+    try {
+      this.boms = await this.bomService.searchBomsByName(this.searchBomName.trim());
+      this.hasMoreBoms = false;
+    } catch (e: any) {
+      this.error = e.message;
+    } finally {
+      this.loading = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async clearBomSearch() {
+    this.searchBomName = '';
+    this.isSearchingBoms = false;
+    await this.loadFirstBoms();
+  }
+
+  // ── Paginado de números de parte ──────────────────────
+  async loadFirstParts() {
+    this.loadingMoreParts = true;
+    try {
+      const result = await this.bomService.getPartNumbersPaginated(this.PART_PAGE_SIZE);
+      this.filteredRolls = this.filterUniquePartNumbers(result.rolls);
+      this.lastPartDoc = result.lastDoc;
+      this.hasMoreParts = result.rolls.length === this.PART_PAGE_SIZE;
+    } catch (e: any) {
+      this.error = e.message;
+    } finally {
+      this.loadingMoreParts = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async loadMoreParts() {
+    if (!this.lastPartDoc || this.loadingMoreParts) return;
+    this.loadingMoreParts = true;
+    try {
+      const result = await this.bomService.getPartNumbersPaginated(this.PART_PAGE_SIZE, this.lastPartDoc);
+      const newUnique = this.filterUniquePartNumbers(result.rolls);
+      this.filteredRolls = [...this.filteredRolls, ...newUnique];
+      this.lastPartDoc = result.lastDoc;
+      this.hasMoreParts = result.rolls.length === this.PART_PAGE_SIZE;
+    } catch (e: any) {
+      this.error = e.message;
+    } finally {
+      this.loadingMoreParts = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async onSearchParts() {
+    if (this.searchPart.trim().length !== 18) return;
+
+    if (!this.searchPart.trim()) {
+      this.isSearchingParts = false;
+      this.searchPartExists = true;
+      await this.loadFirstParts();
+      return;
+    }
+
+    this.isSearchingParts = true;
+    this.loadingMoreParts = true;
+
+    try {
+      const rolls = await this.bomService.searchPartNumbers(this.searchPart.trim());
+      this.filteredRolls = this.filterUniquePartNumbers(rolls);
+
+      // Verificar si el número exacto existe en SMT
+      this.searchPartExists = this.filteredRolls.some(
+        r => r.partNumber.toLowerCase() === this.searchPart.trim().toLowerCase()
+      );
+
+      this.hasMoreParts = false;
+    } catch (e: any) {
+      this.error = e.message;
+    } finally {
+      this.loadingMoreParts = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async clearPartSearch() {
+    this.searchPart = '';
+    this.isSearchingParts = false;
+    this.searchPartExists = true;
+    await this.loadFirstParts();
+  }
+
+  filterUniquePartNumbers(rolls: SmtRoll[]): SmtRoll[] {
+    const seen = new Set(this.filteredRolls.map(r => r.partNumber));
+    return rolls.filter(r => {
+      if (seen.has(r.partNumber)) return false;
+      seen.add(r.partNumber);
+      return true;
     });
   }
 
-  // ── Navegación ───────────────────────────────────────
+  // ── Actualizar openCreate y openEdit ──────────────────
+  openCreate() {
+    this.bomItems = [];
+    this.bomForm.reset();
+    this.searchPart = '';
+    this.filteredRolls = [];
+    this.lastPartDoc = null;
+    this.hasMoreParts = true;
+    this.isSearchingParts = false;
+    this.loadFirstParts();
+    this.view = 'create';
+  }
+
+  openEdit(bom: Bom) {
+    this.selectedBom = bom;
+    this.bomItems = [...bom.items];
+    this.bomForm.patchValue({ name: bom.name, description: bom.description });
+    this.searchPart = '';
+    this.filteredRolls = [];
+    this.lastPartDoc = null;
+    this.hasMoreParts = true;
+    this.isSearchingParts = false;
+    this.loadFirstParts();
+    this.view = 'edit';
+  }
+
+  // ── Actualizar goBack ─────────────────────────────────
   goBack() {
     this.view = 'list';
     this.error = '';
@@ -85,29 +270,44 @@ export class BomComponent implements OnInit {
     this.selectedRolls = [];
     this.pendingItems = [];
     this.currentStockIndex = 0;
+    this.filteredRolls = [];
+    this.searchPart = '';
+
+    if (!this.isSearchingBoms) {
+      this.loadFirstBoms();
+    }
   }
 
+  async loadAllRolls() {
+    try {
+      let allRolls: SmtRoll[] = [];
+      let lastDoc = null;
+      let hasMore = true;
+
+      // Cargar todos los rollos en lotes de 10 para construir la lista de números de parte
+      while (hasMore) {
+        const result: any = lastDoc
+          ? await this.smtService.getRollsNextPage(10, lastDoc)
+          : await this.smtService.getRollsPaginated(10);
+
+        allRolls = [...allRolls, ...result.rolls];
+        lastDoc = result.lastDoc;
+        hasMore = result.rolls.length === 10;
+      }
+
+      this.allRolls = allRolls;
+      this.filteredRolls = this.getUniquePartNumbers();
+      this.cdr.detectChanges();
+    } catch (e: any) {
+      this.error = e.message;
+    }
+  }
+
+  // ── Navegación ───────────────────────────────────────
   openDetail(bom: Bom) {
     this.selectedBom = bom;
     this.view = 'detail';
     this.loadStockForBom(bom);
-  }
-
-  openCreate() {
-    this.bomItems = [];
-    this.bomForm.reset();
-    this.searchPart = '';
-    this.filteredRolls = this.getUniquePartNumbers();
-    this.view = 'create';
-  }
-
-  openEdit(bom: Bom) {
-    this.selectedBom = bom;
-    this.bomItems = [...bom.items];
-    this.bomForm.patchValue({ name: bom.name, description: bom.description });
-    this.searchPart = '';
-    this.filteredRolls = this.getUniquePartNumbers();
-    this.view = 'edit';
   }
 
   openHistory(bom: Bom) {
@@ -153,14 +353,65 @@ export class BomComponent implements OnInit {
   }
 
   // ── Items del BOM ────────────────────────────────────
-  addItem(partNumber: string) {
+  addItem(partNumber: string, existsInSmt = true) {
     const exists = this.bomItems.find(i => i.partNumber === partNumber);
     if (exists) {
       this.error = `${partNumber} ya está en la receta`;
       setTimeout(() => this.error = '', 2000);
       return;
     }
-    this.bomItems.push({ partNumber, quantityRequired: 1 });
+    this.bomItems.push({ partNumber, quantityRequired: 1, existsInSmt });
+    this.cdr.detectChanges();
+  }
+
+  addManualItem() {
+    if (this.searchPart.trim().length !== 18) return;
+    if (!this.searchPart.trim()) return;
+
+    this.addItem(this.searchPart.trim().toUpperCase(), false); // ← false
+    this.searchPart = '';
+    this.isSearchingParts = false;
+    this.searchPartExists = true;
+    this.loadFirstParts();
+  }
+
+  processBulkInput() {
+    if (!this.bulkInput.trim()) return;
+
+    // Separar por salto de línea, coma o punto y coma
+    const parts = this.bulkInput
+      .split(/[\n,;]/)
+      .map(p => p.trim())
+      .filter(p => p.length > 0);
+
+    let added = 0;
+    let skipped = 0;
+    let invalidLength = 0;
+
+    for (const part of parts) {
+      if (part.length !== 18) {
+        invalidLength++;
+        continue;
+      }
+      const exists = this.bomItems.find(i => i.partNumber === part);
+      if (exists) {
+        skipped++;
+        continue;
+      }
+      const existsInSmt = this.allRolls.some(r => r.partNumber === part);
+      this.bomItems.push({ partNumber: part, quantityRequired: 1, existsInSmt });
+      added++;
+    }
+
+    // Resumen
+    let msg = `${added} componente(s) agregado(s).`;
+    if (skipped > 0) msg += ` ${skipped} duplicado(s) ignorado(s).`;
+    if (invalidLength > 0) msg += ` ${invalidLength} con longitud incorrecta ignorado(s).`;
+    this.success = msg;
+    setTimeout(() => this.success = '', 4000);
+
+    this.bulkInput = '';
+    this.showBulkInput = false;
     this.cdr.detectChanges();
   }
 
@@ -200,6 +451,7 @@ export class BomComponent implements OnInit {
       this.error = e.message || 'Error al guardar el BOM';
     } finally {
       this.loading = false;
+      await this.loadFirstBoms();
       this.cdr.detectChanges();
     }
   }
@@ -213,6 +465,7 @@ export class BomComponent implements OnInit {
     } catch (e: any) {
       this.error = e.message;
     } finally {
+      await this.loadFirstBoms();
       this.cdr.detectChanges();
     }
   }
@@ -312,5 +565,110 @@ export class BomComponent implements OnInit {
       this.loading = false;
       this.cdr.detectChanges();
     }
+  }
+
+  // Getter para ordenar items — primero los que existen en SMT
+  get sortedStockItems(): BomStockItem[] {
+    return [...this.stockItems].sort((a, b) => {
+      if (a.totalStock > 0 && b.totalStock === 0) return -1;
+      if (a.totalStock === 0 && b.totalStock > 0) return 1;
+      return 0;
+    });
+  }
+
+  openSingleOutput(item: BomStockItem) {
+    this.singleOutputItem = item;
+    this.singleOutputRollId = item.rolls.length === 1 ? item.rolls[0].id : '';
+    this.singleOutputForm.reset({ quantity: null });
+    this.showSingleOutputModal = true;
+  }
+
+  selectSingleRoll(rollId: string) {
+    this.singleOutputRollId = rollId;
+  }
+
+  async confirmSingleOutput() {
+    if (!this.singleOutputItem || !this.singleOutputRollId) return;
+    const { quantity } = this.singleOutputForm.value;
+    if (!quantity) return;
+
+    this.loading = true;
+    this.error = '';
+
+    try {
+      const roll = this.singleOutputItem.rolls.find(r => r.id === this.singleOutputRollId);
+      if (!roll) throw new Error('Rollo no encontrado');
+
+      if (quantity > roll.stock) {
+        this.error = `Stock insuficiente. Disponible: ${roll.stock} pzs`;
+        return;
+      }
+
+      await this.bomService.registerOutput(
+        this.selectedBom!,
+        1,
+        [{
+          partNumber: this.singleOutputItem.partNumber,
+          rollId: this.singleOutputRollId,
+          quantity
+        }]
+      );
+
+      this.success = `Salida registrada — ${this.singleOutputItem.partNumber} (-${quantity} pzs)`;
+      this.showSingleOutputModal = false;
+      await this.loadStockForBom(this.selectedBom!);
+      setTimeout(() => this.success = '', 3000);
+    } catch (e: any) {
+      this.error = e.message || 'Error al registrar salida';
+    } finally {
+      this.loading = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  get selectedRollStock(): number {
+    if (!this.singleOutputItem || !this.singleOutputRollId) return 0;
+    return this.singleOutputItem.rolls.find(r => r.id === this.singleOutputRollId)?.stock ?? 0;
+  }
+
+  // ── Exportación ───────────────────────────────────────
+  async exportBoms() {
+    const allBoms = await this.bomService.getAllBoms();
+
+    // Hoja 1: Lista de BOMs
+    const bomsData = allBoms.map(b => ({
+      'Nombre': b.name,
+      'Descripción': b.description || '—',
+      'Componentes': b.items.length,
+    }));
+
+    // Hoja 2: Detalle de componentes por BOM
+    const itemsData = allBoms.flatMap(b =>
+      b.items.map(i => ({
+        'BOM': b.name,
+        'Número de Parte': i.partNumber,
+        'Cantidad': i.quantityRequired,
+        'En SMT': i.existsInSmt ? 'Sí' : 'No',
+      }))
+    );
+
+    this.exportService.exportMultiSheet([
+      { name: 'BOMs', data: bomsData },
+      { name: 'Componentes', data: itemsData },
+    ], 'BOMs');
+  }
+
+  async exportBomMovements() {
+    const allMovements = await this.bomService.getAllMovementsOnce();
+
+    const data = allMovements.map(m => ({
+      'BOM': m.bomName,
+      'Tipo': m.type === 'input' ? 'Entrada' : 'Salida',
+      'Cantidad': m.quantity,
+      'Usuario': m.userEmail,
+      'Fecha': m.date?.toDate ? m.date.toDate().toLocaleString('es-MX') : '—',
+    }));
+
+    this.exportService.exportToExcel(data, 'BOM_Movimientos', 'Movimientos');
   }
 }
