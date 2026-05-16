@@ -1,0 +1,109 @@
+<div class="history-container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold mb-0"><i class="bi bi-upc-scan me-2"></i>Historial de movimientos</h6>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-success btn-sm" (click)="exportHistory()">
+                <i class="bi bi-file-earmark-excel me-1"></i>Exportar
+            </button>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="mb-2">
+        <small class="text-muted fw-semibold d-block mb-1">Origen</small>
+        <div class="btn-group w-100 mb-2">
+            <button class="btn btn-sm" [class.btn-primary]="filterSource === 'all'"
+                [class.btn-outline-primary]="filterSource !== 'all'" (click)="setFilterSource('all')">Todos</button>
+            <button class="btn btn-sm" [class.btn-primary]="filterSource === 'smt'"
+                [class.btn-outline-primary]="filterSource !== 'smt'" (click)="setFilterSource('smt')">SMT</button>
+            <button class="btn btn-sm" [class.btn-primary]="filterSource === 'bom'"
+                [class.btn-outline-primary]="filterSource !== 'bom'" (click)="setFilterSource('bom')">BOM</button>
+        </div>
+
+        <small class="text-muted fw-semibold d-block mb-1">Tipo</small>
+        <div class="btn-group w-100 mb-3">
+            <button class="btn btn-sm" [class.btn-secondary]="filterType === 'all'"
+                [class.btn-outline-secondary]="filterType !== 'all'" (click)="setFilterType('all')">Todos</button>
+            <button class="btn btn-sm" [class.btn-success]="filterType === 'input'"
+                [class.btn-outline-success]="filterType !== 'input'" (click)="setFilterType('input')">Entradas</button>
+            <button class="btn btn-sm" [class.btn-warning]="filterType === 'output'"
+                [class.btn-outline-warning]="filterType !== 'output'" (click)="setFilterType('output')">Salidas</button>
+        </div>
+    </div>
+
+    <!-- Total visible -->
+    <small class="text-muted d-block mb-2">
+        {{ filteredMovements.length }} movimientos
+    </small>
+
+    <!-- Loading -->
+    @if (loading) {
+    <div class="text-center py-4">
+        <span class="spinner-border spinner-border-sm me-2"></span>
+        <span class="small">Cargando historial...</span>
+    </div>
+    }
+
+    <!-- Lista -->
+    @if (!loading) {
+    <div class="list-group">
+        @for (mov of filteredMovements; track mov.id) {
+        <div class="list-group-item py-2">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <!-- Badge source -->
+                    <span class="badge me-1" [class.bg-primary]="mov.source === 'smt'"
+                        [class.bg-purple]="mov.source === 'bom'"
+                        [style.background]="mov.source === 'bom' ? '#6f42c1' : ''">
+                        {{ mov.source | uppercase }}
+                    </span>
+                    <!-- Badge tipo -->
+                    <span class="badge" [class.bg-success]="mov.type === 'input'"
+                        [class.bg-warning]="mov.type === 'output'">
+                        {{ mov.type === 'input' ? 'entrada' : 'salida' }}
+                    </span>
+
+                    <!-- Descripción -->
+                    <div class="fw-semibold mt-1">
+                        @if (mov.source === 'smt') {
+                        {{ mov.partNumber }}
+                        <span class="text-muted fw-normal">— {{ mov.quantity }} pzs</span>
+                        } @else {
+                        {{ mov.bomName }}
+                        <span class="text-muted fw-normal">— x{{ mov.quantity }}</span>
+                        }
+                    </div>
+
+                    <!-- Usuario y fecha -->
+                    <div class="small text-muted">
+                        <i class="bi bi-person me-1"></i>{{ mov.userEmail }}
+                    </div>
+                    <div class="small text-muted">
+                        <i class="bi bi-calendar me-1"></i>
+                        {{ mov.date?.toDate ? (mov.date.toDate() | date:'dd/MM/yyyy HH:mm') : '—' }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        }
+
+        @if (filteredMovements.length === 0) {
+        <div class="text-center text-muted py-4">
+            <i class="bi bi-inbox" style="font-size:2rem"></i>
+            <p class="mt-2 small">Sin movimientos</p>
+        </div>
+        }
+    </div>
+    }
+
+    @if (hasMore) {
+    <div class="text-center mt-3">
+        <button class="btn btn-outline-secondary btn-sm px-4" (click)="loadMore()" [disabled]="loadingMore">
+            @if (loadingMore) {
+            <span class="spinner-border spinner-border-sm me-2"></span>
+            }
+            Cargar más
+        </button>
+    </div>
+    }
+</div>

@@ -3,12 +3,13 @@ import { AuthService } from '../../core/services/auth.service';
 import { UsersComponent } from './tabs/users-component/users-component';
 import { SmtComponent } from './tabs/smt-component/smt-component';
 import { BomComponent } from './tabs/bom-component/bom-component';
+import { HistoryComponent } from './tabs/history-component/history-component';
 
-type Tab = 'SMT' | 'BOM' | 'users';
+type Tab = 'SMT' | 'BOM' | 'History' | 'users';
 
 @Component({
   selector: 'app-dashboard-component',
-  imports: [SmtComponent, UsersComponent, BomComponent],
+  imports: [SmtComponent, UsersComponent, BomComponent, HistoryComponent],
   templateUrl: './dashboard-component.html',
 })
 export class DashboardComponent implements OnInit {

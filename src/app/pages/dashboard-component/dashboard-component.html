@@ -24,6 +24,12 @@
                 BOM
             </button>
         </li>
+        <li class="nav-item">
+            <button class="nav-link" [class.active]="activeTab === 'History'" (click)="setTab('History')">
+                <i class="bi bi-clock-history me-1"></i>
+                Historial
+            </button>
+        </li>
         @if (isAdmin) {
         <li class="nav-item">
             <button class="nav-link" [class.active]="activeTab === 'users'" (click)="setTab('users')">
@@ -40,6 +46,9 @@
         }
         @if (activeTab === 'BOM') {
         <app-bom-component />
+        }
+        @if (activeTab === 'History') {
+        <app-history-component />
         }
         @if (activeTab === 'users' && isAdmin) {
         <app-users-component />
