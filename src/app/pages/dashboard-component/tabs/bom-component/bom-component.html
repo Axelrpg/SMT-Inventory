@@ -23,27 +23,43 @@
 
     <div class="d-grid gap-2 mb-3">
         <button class="btn btn-success" (click)="openCreate()">
-            <i class="bi bi-plus-circle me-2"></i>Registrar Entrada
+            <i class="bi bi-plus-circle me-2"></i>Registrar Nuevo Modelo
         </button>
         <button class="btn btn-warning" (click)="openSelectOutput()">
             <i class="bi bi-box-arrow-up me-2"></i>Registrar Salida
         </button>
     </div>
 
+    <!-- Selector de tamaño de página -->
+    <div class="d-flex align-items-center justify-content-end gap-2 mb-2">
+        <small class="text-muted">Mostrar:</small>
+        <div class="btn-group btn-group-sm">
+            @for (size of bomPageSizeOptions; track size) {
+            <button class="btn" [class.btn-primary]="bomPageSize === size"
+                [class.btn-outline-primary]="bomPageSize !== size" (click)="onBomPageSizeChange(size)">
+                {{ size === 0 ? 'Todos' : size }}
+            </button>
+            }
+        </div>
+    </div>
+
     <!-- Búsqueda de BOMs -->
     <div class="mb-3">
         <div class="input-group">
             <input type="text" class="form-control" placeholder="Buscar BOM..." [(ngModel)]="searchBomName"
-                maxlength="18" (keyup.enter)="searchBomName.length === 18 && onSearchBoms()">
-            <button class="btn btn-primary" (click)="onSearchBoms()" [disabled]="searchBomName.length !== 18">
-                <i class="bi bi-search"></i>
-            </button>
+                (input)="onSearchBoms()" (keyup.enter)="onSearchBoms()">
             @if (isSearchingBoms) {
             <button class="btn btn-outline-secondary" (click)="clearBomSearch()">
                 <i class="bi bi-x-lg"></i>
             </button>
             }
         </div>
+        @if (isSearchingBoms) {
+        <div class="mt-1 small text-muted">
+            <i class="bi bi-filter me-1"></i>
+            Resultados para: <strong>{{ searchBomName }}</strong> — {{ boms.length }} encontrados
+        </div>
+        }
 
         <!-- Contador -->
         <div class="d-flex justify-content-end mt-1">
@@ -560,8 +576,8 @@ GHI123456789012345"></textarea>
                 {{ mov.type === 'input' ? 'entrada' : 'salida' }}
             </span>
             <span class="fw-semibold">x{{ mov.quantity }} BOMs</span>
-            <div class="small text-muted mt-1">
-                <i class="bi bi-person me-1"></i>{{ mov.userEmail }}
+            <div class="small text-muted">
+                <i class="bi bi-person me-1"></i>{{ mov.userName }}
             </div>
             <div class="small text-muted">
                 <i class="bi bi-calendar me-1"></i>

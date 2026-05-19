@@ -1,0 +1,194 @@
+<div class="families-container">
+
+    @if (success) {
+    <div class="alert alert-success py-2 small">{{ success }}</div>
+    }
+    @if (error && !showModal) {
+    <div class="alert alert-danger py-2 small">{{ error }}</div>
+    }
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold mb-0">
+            <i class="bi bi-diagram-3 me-2"></i>Familias
+        </h6>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary btn-sm" (click)="showBulkModal = true">
+                <i class="bi bi-list-ul me-1"></i>Carga masiva
+            </button>
+            <button class="btn btn-primary btn-sm" (click)="openCreateModal()">
+                <i class="bi bi-plus-lg me-1"></i>Nueva
+            </button>
+        </div>
+    </div>
+
+    <!-- Selector de tamaño de página -->
+    <div class="d-flex align-items-center justify-content-end gap-2 mb-2">
+        <small class="text-muted">Mostrar:</small>
+        <div class="btn-group btn-group-sm">
+            @for (size of pageSizeOptions; track size) {
+            <button class="btn" [class.btn-primary]="pageSize === size" [class.btn-outline-primary]="pageSize !== size"
+                (click)="onPageSizeChange(size)">
+                {{ size === 0 ? 'Todos' : size }}
+            </button>
+            }
+        </div>
+    </div>
+
+    <!-- Búsqueda -->
+    <div class="mb-3">
+        <div class="input-group">
+            <input type="text" class="form-control" placeholder="Buscar por familia o número de parte..."
+                [(ngModel)]="searchText" (input)="onSearch()" (keyup.enter)="onSearch()">
+            @if (isSearching) {
+            <button class="btn btn-outline-secondary" (click)="clearSearch()">
+                <i class="bi bi-x-lg"></i>
+            </button>
+            }
+        </div>
+        @if (isSearching) {
+        <div class="mt-1 small text-muted">
+            <i class="bi bi-filter me-1"></i>
+            Resultados: <strong>{{ filteredItems.length }}</strong>
+        </div>
+        }
+    </div>
+
+    @if (loading) {
+    <div class="text-center py-3">
+        <span class="spinner-border spinner-border-sm me-2"></span>
+        <span class="small">Cargando...</span>
+    </div>
+    }
+
+    <!-- Lista -->
+    <div class="list-group">
+        @for (item of filteredItems; track item.id) {
+        <div class="list-group-item">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="fw-semibold">{{ item.name }}</div>
+                    <small class="text-muted">
+                        <i class="bi bi-upc me-1"></i>{{ item.partNumber }}
+                    </small>
+                </div>
+                <div class="d-flex gap-1">
+                    <button class="btn btn-outline-primary btn-sm" (click)="openEditModal(item)">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-outline-danger btn-sm" (click)="deleteItem(item)">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        }
+
+        @if (!loading && filteredItems.length === 0) {
+        <div class="text-center text-muted py-4">
+            <i class="bi bi-diagram-3" style="font-size:2rem"></i>
+            <p class="mt-2 small">
+                {{ isSearching ? 'No se encontraron familias' : 'No hay familias registradas' }}
+            </p>
+        </div>
+        }
+    </div>
+
+    @if (hasMore && !isSearching) {
+    <div class="text-center mt-3">
+        <button class="btn btn-outline-secondary btn-sm px-4" (click)="loadMore()" [disabled]="loadingMore">
+            @if (loadingMore) {
+            <span class="spinner-border spinner-border-sm me-2"></span>
+            }
+            Cargar más
+        </button>
+    </div>
+    }
+
+</div>
+
+<!-- Modal crear/editar -->
+@if (showModal) {
+<div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5)">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    {{ editingItem ? 'Editar familia' : 'Nueva familia' }}
+                </h5>
+                <button type="button" class="btn-close" (click)="closeModal()"></button>
+            </div>
+            <div class="modal-body">
+                @if (error) {
+                <div class="alert alert-danger py-2 small">{{ error }}</div>
+                }
+                <form [formGroup]="familyForm">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Nombre de familia</label>
+                        <input type="text" class="form-control" formControlName="name" placeholder="Ej. Familia A">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Número de parte</label>
+                        <input type="text" class="form-control" formControlName="partNumber"
+                            placeholder="Número de parte del subensamble">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" (click)="closeModal()">Cancelar</button>
+                <button class="btn btn-primary" (click)="save()" [disabled]="familyForm.invalid || loading">
+                    @if (loading) {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    {{ editingItem ? 'Guardar cambios' : 'Crear' }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+}
+
+<!-- Modal carga masiva -->
+@if (showBulkModal) {
+<div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5)">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-list-ul me-2"></i>Carga masiva
+                </h5>
+                <button type="button" class="btn-close" (click)="showBulkModal = false; bulkInput = ''">
+                </button>
+            </div>
+            <div class="modal-body">
+                @if (error) {
+                <div class="alert alert-danger py-2 small">{{ error }}</div>
+                }
+                <p class="small text-muted mb-2">
+                    Ingresa una familia por línea con el formato:<br>
+                    <code>Nombre de familia, Número de parte</code>
+                </p>
+                <textarea class="form-control font-monospace" rows="10" [(ngModel)]="bulkInput" placeholder="Familia A, ABC123
+Familia B, DEF456
+Familia C, GHI789"></textarea>
+                <div class="form-text mt-1">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Separa con coma, punto y coma o tabulador.
+                    Los números de parte duplicados serán ignorados.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" (click)="showBulkModal = false; bulkInput = ''">
+                    Cancelar
+                </button>
+                <button class="btn btn-primary" (click)="processBulkInput()" [disabled]="!bulkInput.trim() || loading">
+                    @if (loading) {
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                    }
+                    <i class="bi bi-plus-lg me-1"></i>Agregar todos
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+}

@@ -17,10 +17,10 @@ export interface BomMovement {
     id?: string;
     bomId: string;
     bomName: string;
-    type: 'input' | 'output';
+    type: 'entrada' | 'salida';
     quantity: number; // cuantos BOMs se produjeron
     userId: string;
-    userEmail: string;
+    userName: string;
     date: any;
 }
 

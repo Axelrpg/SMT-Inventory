@@ -108,7 +108,7 @@ export class SmtService {
         await addDoc(movRef, {
             rollId, partNumber, type, quantity,
             userId: user.uid,
-            userEmail: user.email,
+            userName: user.displayName || user.email,
             date: serverTimestamp()
         });
 

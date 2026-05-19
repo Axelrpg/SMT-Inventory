@@ -31,19 +31,31 @@
         </button>
     </div>
 
+    <!-- Selector de tamaño de página -->
+    <div class="d-flex align-items-center justify-content-end gap-2 mb-2">
+        <small class="text-muted">Mostrar:</small>
+        <div class="btn-group btn-group-sm">
+            @for (size of pageSizeOptions; track size) {
+            <button class="btn" [class.btn-primary]="pageSize === size" [class.btn-outline-primary]="pageSize !== size"
+                (click)="onPageSizeChange(size)">
+                {{ size === 0 ? 'Todos' : size }}
+            </button>
+            }
+        </div>
+    </div>
+
     <!-- Búsqueda -->
     <div class="mb-3">
         <div class="input-group">
             <input type="text" class="form-control" placeholder="Buscar número de parte..."
-                [(ngModel)]="searchPartNumber" maxlength="18"
-                (keyup.enter)="searchPartNumber.length === 18 && onSearch()">
+                [(ngModel)]="searchPartNumber" maxlength="18" (input)="onSearch()" (keyup.enter)="onSearch()">
             <button class="btn" [class.btn-primary]="searchScannerEnabled"
                 [class.btn-outline-secondary]="!searchScannerEnabled" (click)="toggleSearchScanner()" title="Escanear">
                 <i class="bi" [class.bi-camera-video-fill]="searchScannerEnabled"
                     [class.bi-camera]="!searchScannerEnabled">
                 </i>
             </button>
-            <button class="btn btn-primary" (click)="onSearch()" [disabled]="searchPartNumber.length !== 18">
+            <button class="btn btn-primary" (click)="onSearch()">
                 <i class="bi bi-search"></i>
             </button>
             @if (isSearching) {
@@ -73,10 +85,10 @@
         }
 
         @if (isSearching) {
-        <div class="mt-2 small text-muted">
+        <div class="mt-1 small text-muted">
             <i class="bi bi-filter me-1"></i>
-            Mostrando resultados para: <strong>{{ searchPartNumber }}</strong>
-            — {{ rolls.length }} encontrados
+            Resultados para: <strong>{{ searchPartNumber }}</strong>
+            — {{ filteredRolls.length }} encontrados
         </div>
         }
     </div>
@@ -90,7 +102,7 @@
     }
 
     <div class="list-group">
-        @for (roll of rolls; track roll.id) {
+        @for (roll of filteredRolls; track roll.id) {
         <div class="list-group-item">
             <div class="d-flex justify-content-between align-items-start">
                 <div>
@@ -121,7 +133,7 @@
         </div>
         }
 
-        @if (!loading && rolls.length === 0) {
+        @if (!loading && filteredRolls.length === 0) {
         <div class="text-center text-muted py-4">
             <i class="bi bi-inbox" style="font-size:2rem"></i>
             <p class="mt-2 small">
@@ -198,17 +210,17 @@
             </div>
         </div>
 
-        <!-- Ubicación -->
-        <div class="mb-3">
-            <label class="form-label fw-semibold">Ubicación</label>
-            <input type="text" class="form-control" formControlName="location" placeholder="Ej. Rack A-3">
-        </div>
-
         <!-- Cantidad -->
         <div class="mb-4">
             <label class="form-label fw-semibold">Cantidad</label>
             <input type="number" class="form-control form-control-lg text-center" formControlName="quantity" min="1"
                 placeholder="Ej. 100">
+        </div>
+
+        <!-- Ubicación -->
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Ubicación</label>
+            <input type="text" class="form-control" formControlName="location" placeholder="Ej. Rack A-3">
         </div>
 
         <button class="btn btn-success w-100 btn-lg" (click)="saveInput()" [disabled]="inputForm.invalid || loading">
@@ -369,8 +381,8 @@
                         {{ mov.type }}
                     </span>
                     <span class="fw-semibold">{{ mov.quantity }} pzs</span>
-                    <div class="small text-muted mt-1">
-                        <i class="bi bi-person me-1"></i>{{ mov.userEmail }}
+                    <div class="small text-muted">
+                        <i class="bi bi-person me-1"></i>{{ mov.userName }}
                     </div>
                     <div class="small text-muted">
                         <i class="bi bi-calendar me-1"></i>
@@ -398,7 +410,7 @@
                 <form [formGroup]="editForm">
                     <div class="mb-3">
                         <label class="form-label">Número de parte</label>
-                        <input type="text" class="form-control" formControlName="partNumber">
+                        <input type="text" class="form-control" formControlName="partNumber" maxlength="18">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Cantidad</label>

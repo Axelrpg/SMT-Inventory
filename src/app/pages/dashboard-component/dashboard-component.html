@@ -2,7 +2,7 @@
     <nav class="navbar navbar-dark bg-primary px-3">
         <span class="navbar-brand fw-bold">
             <i class="bi bi-box-seam me-2">
-                Inventario de Almacén
+                Smart Production Control
             </i>
         </span>
         <button class="btn btn-outline-light btn-sm" (click)="logout()">
@@ -22,6 +22,17 @@
             <button class="nav-link" [class.active]="activeTab === 'BOM'" (click)="setTab('BOM')">
                 <i class="bi bi-list me-1"></i>
                 BOM
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" [class.active]="activeTab === 'Subassembly'" (click)="setTab('Subassembly')">
+                <i class="bi bi-layers me-1"></i>
+                Subensambles
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" [class.active]="activeTab === 'Families'" (click)="setTab('Families')">
+                <i class="bi bi-diagram-3 me-1"></i>Familias
             </button>
         </li>
         <li class="nav-item">
@@ -46,6 +57,12 @@
         }
         @if (activeTab === 'BOM') {
         <app-bom-component />
+        }
+        @if (activeTab === 'Subassembly') {
+        <app-subassembly-component />
+        }
+        @if (activeTab === 'Families') {
+        <app-families-component />
         }
         @if (activeTab === 'History') {
         <app-history-component />

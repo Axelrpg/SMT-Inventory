@@ -51,6 +51,10 @@ export class BomComponent implements OnInit {
   searchPartExists = true;
   readonly PART_PAGE_SIZE = 5;
 
+  allLoadedBoms: Bom[] = [];
+  bomPageSize = 10;
+  bomPageSizeOptions = [10, 20, 50, 100, 0];
+
   view: View = 'list';
   loading = false;
   error = '';
@@ -100,10 +104,19 @@ export class BomComponent implements OnInit {
   async loadFirstBoms() {
     this.loading = true;
     try {
-      const result = await this.bomService.getBomsPaginated(this.BOM_PAGE_SIZE);
-      this.boms = result.boms;
-      this.lastBomDoc = result.lastDoc;
-      this.hasMoreBoms = result.boms.length === this.BOM_PAGE_SIZE;
+      if (this.bomPageSize === 0) {
+        const all = await this.bomService.getAllBoms();
+        this.allLoadedBoms = all;
+        this.boms = all;
+        this.lastBomDoc = null;
+        this.hasMoreBoms = false;
+      } else {
+        const result = await this.bomService.getBomsPaginated(this.bomPageSize);
+        this.allLoadedBoms = result.boms;
+        this.boms = result.boms;
+        this.lastBomDoc = result.lastDoc;
+        this.hasMoreBoms = result.boms.length === this.bomPageSize;
+      }
     } catch (e: any) {
       this.error = e.message;
     } finally {
@@ -116,10 +129,11 @@ export class BomComponent implements OnInit {
     if (!this.lastBomDoc || this.loadingMoreBoms) return;
     this.loadingMoreBoms = true;
     try {
-      const result = await this.bomService.getBomsPaginated(this.BOM_PAGE_SIZE, this.lastBomDoc);
-      this.boms = [...this.boms, ...result.boms];
+      const result = await this.bomService.getBomsPaginated(this.bomPageSize, this.lastBomDoc);
+      this.allLoadedBoms = [...this.allLoadedBoms, ...result.boms];
+      this.boms = this.applyBomFilter(this.allLoadedBoms);
       this.lastBomDoc = result.lastDoc;
-      this.hasMoreBoms = result.boms.length === this.BOM_PAGE_SIZE;
+      this.hasMoreBoms = result.boms.length === this.bomPageSize;
     } catch (e: any) {
       this.error = e.message;
     } finally {
@@ -128,29 +142,33 @@ export class BomComponent implements OnInit {
     }
   }
 
-  async onSearchBoms() {
-    if (!this.searchBomName.trim()) {
-      this.isSearchingBoms = false;
-      await this.loadFirstBoms();
-      return;
-    }
-    this.isSearchingBoms = true;
-    this.loading = true;
-    try {
-      this.boms = await this.bomService.searchBomsByName(this.searchBomName.trim());
-      this.hasMoreBoms = false;
-    } catch (e: any) {
-      this.error = e.message;
-    } finally {
-      this.loading = false;
-      this.cdr.detectChanges();
-    }
-  }
-
-  async clearBomSearch() {
+  async onBomPageSizeChange(size: number) {
+    this.bomPageSize = size;
     this.searchBomName = '';
     this.isSearchingBoms = false;
     await this.loadFirstBoms();
+  }
+
+  applyBomFilter(boms: Bom[]): Bom[] {
+    if (!this.searchBomName.trim()) return boms;
+    const s = this.searchBomName.trim().toLowerCase();
+    return boms.filter(b =>
+      b.name.toLowerCase().includes(s) ||
+      (b.description?.toLowerCase().includes(s) ?? false)
+    );
+  }
+
+  onSearchBoms() {
+    this.isSearchingBoms = !!this.searchBomName.trim();
+    this.boms = this.applyBomFilter(this.allLoadedBoms);
+    this.cdr.detectChanges();
+  }
+
+  clearBomSearch() {
+    this.searchBomName = '';
+    this.isSearchingBoms = false;
+    this.boms = this.allLoadedBoms;
+    this.cdr.detectChanges();
   }
 
   // ── Paginado de números de parte ──────────────────────
@@ -275,6 +293,8 @@ export class BomComponent implements OnInit {
 
     if (!this.isSearchingBoms) {
       this.loadFirstBoms();
+    } else {
+      this.boms = this.applyBomFilter(this.allLoadedBoms);
     }
   }
 
@@ -663,9 +683,9 @@ export class BomComponent implements OnInit {
 
     const data = allMovements.map(m => ({
       'BOM': m.bomName,
-      'Tipo': m.type === 'input' ? 'Entrada' : 'Salida',
+      'Tipo': m.type === 'entrada' ? 'Entrada' : 'Salida',
       'Cantidad': m.quantity,
-      'Usuario': m.userEmail,
+      'Usuario': m.userName,
       'Fecha': m.date?.toDate ? m.date.toDate().toLocaleString('es-MX') : '—',
     }));
 

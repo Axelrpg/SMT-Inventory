@@ -183,10 +183,10 @@ export class BomService {
             await addDoc(collection(this.firestore, 'smt_movements'), {
                 rollId: sel.rollId,
                 partNumber: sel.partNumber,
-                type: 'output',
+                type: 'salida',
                 quantity: sel.quantity,
                 userId: user.uid,
-                userEmail: user.email,
+                userName: user.displayName || user.email,
                 date: serverTimestamp()
             });
 
@@ -201,10 +201,10 @@ export class BomService {
         await addDoc(collection(this.firestore, 'bom_movements'), {
             bomId: bom.id,
             bomName: bom.name,
-            type: 'output',
+            type: 'salida',
             quantity,
             userId: user.uid,
-            userEmail: user.email,
+            userName: user.displayName || user.email,
             date: serverTimestamp()
         });
     }

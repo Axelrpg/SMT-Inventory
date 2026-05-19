@@ -30,10 +30,15 @@ export class SmtComponent implements OnInit {
   isAdmin = false;
 
   rolls: SmtRoll[] = [];
+  filteredRolls: SmtRoll[] = [];  // rollos filtrados para mostrar
+  allLoadedRolls: SmtRoll[] = []; // todos los rollos cargados
+
   lastDoc: QueryDocumentSnapshot | null = null;
   hasMore = true;
   loadingMore = false;
-  readonly PAGE_SIZE = 10;
+
+  pageSize = 10;
+  pageSizeOptions = [10, 20, 50, 100, 0]; // 0 = todos
 
   searchPartNumber = '';
   isSearching = false;
@@ -85,7 +90,7 @@ export class SmtComponent implements OnInit {
 
   // Formulario edición
   editForm = this.fb.group({
-    partNumber: ['', Validators.required, Validators.minLength(18), Validators.maxLength(18)],
+    partNumber: ['', [Validators.required, Validators.minLength(18), Validators.maxLength(18)]],
     quantity: [0, [Validators.required, Validators.min(0)]],
     location: ['', Validators.required],
   });
@@ -104,10 +109,20 @@ export class SmtComponent implements OnInit {
   async loadFirstPage() {
     this.loading = true;
     try {
-      const result = await this.smtService.getRollsPaginated(this.PAGE_SIZE);
-      this.rolls = result.rolls;
-      this.lastDoc = result.lastDoc;
-      this.hasMore = result.rolls.length === this.PAGE_SIZE;
+      // Si pageSize es 0, cargar todos
+      if (this.pageSize === 0) {
+        const all = await this.smtService.getAllRolls();
+        this.allLoadedRolls = all;
+        this.filteredRolls = all;
+        this.lastDoc = null;
+        this.hasMore = false;
+      } else {
+        const result = await this.smtService.getRollsPaginated(this.pageSize);
+        this.allLoadedRolls = result.rolls;
+        this.filteredRolls = result.rolls;
+        this.lastDoc = result.lastDoc;
+        this.hasMore = result.rolls.length === this.pageSize;
+      }
     } catch (e: any) {
       this.error = e.message;
     } finally {
@@ -116,15 +131,15 @@ export class SmtComponent implements OnInit {
     }
   }
 
-  // ── Cargar más ───────────────────────────────────────
   async loadMore() {
-    if (!this.lastDoc || this.loadingMore) return;
+    if (!this.lastDoc || this.loadingMore || this.pageSize === 0) return;
     this.loadingMore = true;
     try {
-      const result = await this.smtService.getRollsNextPage(this.PAGE_SIZE, this.lastDoc);
-      this.rolls = [...this.rolls, ...result.rolls];
+      const result = await this.smtService.getRollsNextPage(this.pageSize, this.lastDoc);
+      this.allLoadedRolls = [...this.allLoadedRolls, ...result.rolls];
+      this.filteredRolls = this.applyFilter(this.allLoadedRolls);
       this.lastDoc = result.lastDoc;
-      this.hasMore = result.rolls.length === this.PAGE_SIZE;
+      this.hasMore = result.rolls.length === this.pageSize;
     } catch (e: any) {
       this.error = e.message;
     } finally {
@@ -134,33 +149,30 @@ export class SmtComponent implements OnInit {
   }
 
   // ── Búsqueda ─────────────────────────────────────────
-  async onSearch() {
-    if (this.searchPartNumber.trim().length !== 18) {
-      if (!this.searchPartNumber.trim()) {
-        this.isSearching = false;
-        await this.loadFirstPage();
-      }
+  onSearch() {
+    if (!this.searchPartNumber.trim()) {
+      this.isSearching = false;
+      this.filteredRolls = this.allLoadedRolls;
+      this.cdr.detectChanges();
       return;
     }
-
     this.isSearching = true;
-    this.loading = true;
-    try {
-      this.rolls = await this.smtService.searchRollsByPartNumber(this.searchPartNumber.trim());
-      this.hasMore = false;
-    } catch (e: any) {
-      this.error = e.message;
-    } finally {
-      this.loading = false;
-      this.cdr.detectChanges();
-    }
+    this.filteredRolls = this.applyFilter(this.allLoadedRolls);
+    this.cdr.detectChanges();
   }
 
-  async clearSearch() {
+  applyFilter(rolls: SmtRoll[]): SmtRoll[] {
+    if (!this.searchPartNumber.trim()) return rolls;
+    const search = this.searchPartNumber.trim().toLowerCase();
+    return rolls.filter(r => r.partNumber.toLowerCase().includes(search));
+  }
+
+  clearSearch() {
     this.searchPartNumber = '';
     this.isSearching = false;
     this.searchScannerEnabled = false;
-    await this.loadFirstPage();
+    this.filteredRolls = this.allLoadedRolls;
+    this.cdr.detectChanges();
   }
 
   // ── Escáner de búsqueda ──────────────────────────────
@@ -171,8 +183,15 @@ export class SmtComponent implements OnInit {
   async onSearchCodeScanned(code: string) {
     if (!code) return;
     this.searchScannerEnabled = false;
-    this.searchPartNumber = code.substring(0, 18); // recorta si el código es más largo
-    await this.onSearch();
+    this.searchPartNumber = code;
+    this.onSearch();
+  }
+
+  async onPageSizeChange(size: number) {
+    this.pageSize = size;
+    this.searchPartNumber = '';
+    this.isSearching = false;
+    await this.loadFirstPage();
   }
 
   // ── Actualizar goBack para recargar lista ─────────────
@@ -188,7 +207,9 @@ export class SmtComponent implements OnInit {
     this.outputForm.reset({ quantity: null });
 
     if (!this.isSearching) {
-      this.loadFirstPage(); // ← solo una vez aquí
+      this.loadFirstPage();
+    } else {
+      this.filteredRolls = this.applyFilter(this.allLoadedRolls);
     }
   }
 
@@ -385,7 +406,11 @@ export class SmtComponent implements OnInit {
   // ── Editar rollo ─────────────────────────────────────
   openEditModal(roll: SmtRoll) {
     this.editingRoll = roll;
-    this.editForm.patchValue(roll);
+    this.editForm.patchValue({
+      partNumber: roll.partNumber,
+      quantity: roll.quantity,
+      location: roll.location
+    });
     this.showEditModal = true;
   }
 
@@ -451,7 +476,7 @@ export class SmtComponent implements OnInit {
       'Número de Parte': m.partNumber,
       'Tipo': m.type === 'entrada' ? 'Entrada' : 'Salida',
       'Cantidad': m.quantity,
-      'Usuario': m.userEmail,
+      'Usuario': m.userName,
       'Fecha': m.date?.toDate ? m.date.toDate().toLocaleString('es-MX') : '—',
     }));
 

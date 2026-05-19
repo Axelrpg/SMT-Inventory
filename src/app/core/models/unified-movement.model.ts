@@ -1,11 +1,12 @@
 export interface UnifiedMovement {
     id?: string;
-    source: 'smt' | 'bom';
-    type: 'input' | 'output';
+    source: 'smt' | 'bom' | 'subassembly';
+    type: 'entrada' | 'salida';
     partNumber?: string;
     bomName?: string;
+    magazine?: string;
     quantity: number;
     userId: string;
-    userEmail: string;
+    userName: string;
     date: any;
 }

@@ -1,0 +1,404 @@
+<div class="sub-container">
+
+    @if (success) {
+    <div class="alert alert-success py-2 small">{{ success }}</div>
+    }
+    @if (error) {
+    <div class="alert alert-danger py-2 small">{{ error }}</div>
+    }
+
+    <!-- ══════════════ LISTA ══════════════ -->
+    @if (view === 'list') {
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold mb-0"><i class="bi bi-upc-scan me-2"></i>Subensambles</h6>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-success btn-sm" (click)="exportSubassemblies()">
+                <i class="bi bi-file-earmark-excel me-1"></i>Subensambles
+            </button>
+            <button class="btn btn-outline-success btn-sm" (click)="exportSubassemblyMovements()">
+                <i class="bi bi-file-earmark-excel me-1"></i>Movimientos
+            </button>
+        </div>
+    </div>
+
+    <div class="d-grid gap-2 mb-3">
+        <button class="btn btn-success" (click)="openInput()">
+            <i class="bi bi-box-arrow-in-down me-2"></i>Registrar Entrada
+        </button>
+        <button class="btn btn-warning" (click)="openOutput()">
+            <i class="bi bi-box-arrow-up me-2"></i>Registrar Salida
+        </button>
+    </div>
+
+    <!-- Selector de tamaño de página -->
+    <div class="d-flex align-items-center justify-content-end gap-2 mb-2">
+        <small class="text-muted">Mostrar:</small>
+        <div class="btn-group btn-group-sm">
+            @for (size of pageSizeOptions; track size) {
+            <button class="btn" [class.btn-primary]="pageSize === size" [class.btn-outline-primary]="pageSize !== size"
+                (click)="onPageSizeChange(size)">
+                {{ size === 0 ? 'Todos' : size }}
+            </button>
+            }
+        </div>
+    </div>
+
+    <!-- Búsqueda -->
+    <div class="mb-3">
+        <div class="input-group">
+            <input type="text" class="form-control" placeholder="Buscar por magazine o número de parte..."
+                [(ngModel)]="searchText" (input)="onSearch()" (keyup.enter)="onSearch()">
+            <button class="btn" [class.btn-primary]="searchScannerEnabled"
+                [class.btn-outline-secondary]="!searchScannerEnabled" (click)="toggleSearchScanner()">
+                <i class="bi" [class.bi-camera-video-fill]="searchScannerEnabled"
+                    [class.bi-camera]="!searchScannerEnabled">
+                </i>
+            </button>
+            @if (isSearching) {
+            <button class="btn btn-outline-secondary" (click)="clearSearch()">
+                <i class="bi bi-x-lg"></i>
+            </button>
+            }
+        </div>
+
+        @if (searchScannerEnabled) {
+        <div class="scanner-wrapper rounded overflow-hidden mt-2">
+            <zxing-scanner [enable]="searchScannerEnabled" [formats]="formats"
+                (scanSuccess)="onSearchCodeScanned($event)">
+            </zxing-scanner>
+        </div>
+        }
+
+        @if (isSearching) {
+        <div class="mt-1 small text-muted">
+            <i class="bi bi-filter me-1"></i>
+            Resultados: <strong>{{ filteredItems.length }}</strong>
+        </div>
+        }
+    </div>
+
+    @if (loading) {
+    <div class="text-center py-3">
+        <span class="spinner-border spinner-border-sm me-2"></span>
+        <span class="small">Cargando...</span>
+    </div>
+    }
+
+    <div class="list-group">
+        @for (item of filteredItems; track item.id) {
+        <div class="list-group-item">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="fw-semibold">
+                        <i class="bi bi-grid-3x3-gap me-1 text-secondary"></i>
+                        {{ item.magazine }}
+                    </div>
+                    <small class="text-muted d-block">{{ item.partNumber }}</small>
+                    @if (familyMap.get(item.partNumber)) {
+                    <small class="text-primary d-block">
+                        <i class="bi bi-diagram-3 me-1"></i>{{ familyMap.get(item.partNumber) }}
+                    </small>
+                    }
+                    <span class="badge mt-1" [class.bg-success]="item.quantity > 10"
+                        [class.bg-warning]="item.quantity > 0 && item.quantity <= 10"
+                        [class.bg-danger]="item.quantity === 0">
+                        {{ item.quantity }} pzs
+                    </span>
+                </div>
+                <div class="d-flex gap-1">
+                    <button class="btn btn-outline-secondary btn-sm" (click)="openHistory(item)" title="Historial">
+                        <i class="bi bi-clock-history"></i>
+                    </button>
+                    @if (isAdmin) {
+                    <button class="btn btn-outline-primary btn-sm" (click)="openEditModal(item)">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-outline-danger btn-sm" (click)="deleteItem(item)">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                    }
+                </div>
+            </div>
+        </div>
+        }
+
+        @if (!loading && filteredItems.length === 0) {
+        <div class="text-center text-muted py-4">
+            <i class="bi bi-inbox" style="font-size:2rem"></i>
+            <p class="mt-2 small">
+                {{ isSearching ? 'No se encontraron resultados' : 'No hay subensambles registrados' }}
+            </p>
+        </div>
+        }
+    </div>
+
+    @if (hasMore && !isSearching) {
+    <div class="text-center mt-3">
+        <button class="btn btn-outline-secondary btn-sm px-4" (click)="loadMore()" [disabled]="loadingMore">
+            @if (loadingMore) {
+            <span class="spinner-border spinner-border-sm me-2"></span>
+            }
+            Cargar más
+        </button>
+    </div>
+    }
+    }
+
+    <!-- ══════════════ ENTRADA ══════════════ -->
+    @if (view === 'input') {
+    <button class="btn btn-link ps-0 mb-3" (click)="goBack()">
+        <i class="bi bi-arrow-left me-1"></i>Cancelar
+    </button>
+    <h6 class="fw-bold mb-3">
+        <i class="bi bi-box-arrow-in-down me-2 text-success"></i>Registrar Entrada
+    </h6>
+
+    <form [formGroup]="inputForm">
+
+        <!-- Magazine -->
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Magazine</label>
+            <div class="input-group">
+                <input type="text" class="form-control" formControlName="magazine" placeholder="Ej. MAG-001">
+                <button type="button" class="btn" [class.btn-primary]="scannerEnabled && scanTarget === 'magazine'"
+                    [class.btn-outline-secondary]="!(scannerEnabled && scanTarget === 'magazine')"
+                    (click)="openCameraFor('magazine')">
+                    <i class="bi" [class.bi-camera-video-fill]="scannerEnabled && scanTarget === 'magazine'"
+                        [class.bi-camera]="!(scannerEnabled && scanTarget === 'magazine')">
+                    </i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Número de parte -->
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Número de parte</label>
+            <div class="input-group">
+                <input type="text" class="form-control" formControlName="partNumber" placeholder="Ej. ABC-1234" maxlength="8"
+                    (input)="onPartNumberChange()">
+                <button type="button" class="btn" [class.btn-primary]="scannerEnabled && scanTarget === 'partNumber'"
+                    [class.btn-outline-secondary]="!(scannerEnabled && scanTarget === 'partNumber')"
+                    (click)="openCameraFor('partNumber')">
+                    <i class="bi" [class.bi-camera-video-fill]="scannerEnabled && scanTarget === 'partNumber'"
+                        [class.bi-camera]="!(scannerEnabled && scanTarget === 'partNumber')">
+                    </i>
+                </button>
+            </div>
+
+            <!-- Familia encontrada -->
+            @if (familyForInput) {
+            <div class="mt-1 d-flex align-items-center gap-1">
+                <i class="bi bi-diagram-3 text-primary small"></i>
+                <small class="text-primary fw-semibold">{{ familyForInput }}</small>
+            </div>
+            }
+        </div>  
+
+        <!-- Contador -->
+        <div class="d-flex justify-content-end mt-1">
+            <small
+                [class.text-danger]="(inputForm.get('partNumber')?.value?.length ?? 0) > 0 && (inputForm.get('partNumber')?.value?.length ?? 0) < 8"
+                [class.text-success]="inputForm.get('partNumber')?.value?.length === 8"
+                [class.text-muted]="!inputForm.get('partNumber')?.value?.length">
+                {{ inputForm.get('partNumber')?.value?.length ?? 0 }}/8
+            </small>
+        </div>
+
+        <!-- Escáner -->
+        @if (scannerEnabled) {
+        <div class="scanner-wrapper rounded overflow-hidden mb-3">
+            <zxing-scanner [enable]="scannerEnabled" [formats]="formats" (scanSuccess)="onCodeScanned($event)">
+            </zxing-scanner>
+        </div>
+        <p class="text-muted small text-center">
+            Escaneando {{ scanTarget === 'magazine' ? 'magazine' : 'número de parte' }}
+        </p>
+        }
+
+        <!-- Cantidad -->
+        <div class="mb-4">
+            <label class="form-label fw-semibold">Cantidad</label>
+            <input type="number" class="form-control form-control-lg text-center" formControlName="quantity" min="1"
+                placeholder="Ej. 100">
+        </div>
+
+        <button class="btn btn-success w-100 btn-lg" (click)="saveInput()" [disabled]="inputForm.invalid || loading">
+            @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+            Confirmar Entrada
+        </button>
+    </form>
+    }
+
+    <!-- ══════════════ SALIDA ══════════════ -->
+    @if (view === 'output') {
+    <button class="btn btn-link ps-0 mb-3" (click)="goBack()">
+        <i class="bi bi-arrow-left me-1"></i>Cancelar
+    </button>
+    <h6 class="fw-bold mb-3">
+        <i class="bi bi-box-arrow-up me-2 text-warning"></i>Registrar Salida
+    </h6>
+
+    <!-- Paso 1: Buscar magazine -->
+    @if (outputStep === 'form') {
+    <form [formGroup]="outputForm">
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Magazine</label>
+            <div class="input-group">
+                <input type="text" class="form-control" formControlName="magazine" placeholder="Ej. MAG-001">
+                <button type="button" class="btn" [class.btn-primary]="scannerEnabled"
+                    [class.btn-outline-secondary]="!scannerEnabled" (click)="openCameraFor('magazine')">
+                    <i class="bi" [class.bi-camera-video-fill]="scannerEnabled" [class.bi-camera]="!scannerEnabled">
+                    </i>
+                </button>
+            </div>
+        </div>
+
+        @if (scannerEnabled) {
+        <div class="scanner-wrapper rounded overflow-hidden mb-3">
+            <zxing-scanner [enable]="scannerEnabled" [formats]="formats" (scanSuccess)="onCodeScanned($event)">
+            </zxing-scanner>
+        </div>
+        <p class="text-muted small text-center">Apunta al magazine</p>
+        }
+
+        <button class="btn btn-warning w-100" (click)="searchByMagazine()"
+            [disabled]="!outputForm.get('magazine')?.value?.trim() || loading">
+            @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+            <i class="bi bi-search me-2"></i>Buscar Magazine
+        </button>
+    </form>
+    }
+
+    <!-- Paso 2: Confirmar cantidad -->
+    @if (outputStep === 'confirm' && foundItem) {
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <div class="fw-bold">
+                <i class="bi bi-grid-3x3-gap me-1 text-secondary"></i>
+                {{ foundItem.magazine }}
+            </div>
+            <small class="text-muted d-block">{{ foundItem.partNumber }}</small>
+            <span class="badge mt-2 fs-6" [class.bg-success]="foundItem.quantity > 10"
+                [class.bg-warning]="foundItem.quantity > 0 && foundItem.quantity <= 10"
+                [class.bg-danger]="foundItem.quantity === 0">
+                Disponible: {{ foundItem.quantity }} pzs
+            </span>
+        </div>
+    </div>
+
+    <!-- Opciones de Retiro -->
+    <div class="mb-3 text-center">
+        <label class="form-label d-block fw-semibold text-start">Modo de retiro</label>
+        <div class="btn-group w-100" role="group">
+            <input type="radio" class="btn-check" name="withdrawMode" id="btnAll" autocomplete="off"
+                [checked]="withdrawMode === 'all'" (change)="setWithdrawMode('all')">
+            <label class="btn btn-outline-warning" for="btnAll">
+                <i class="bi bi-box-arrow-up me-1"></i>Retirar todo
+            </label>
+
+            <input type="radio" class="btn-check" name="withdrawMode" id="btnCustom" autocomplete="off"
+                [checked]="withdrawMode === 'custom'" (change)="setWithdrawMode('custom')">
+            <label class="btn btn-outline-warning" for="btnCustom">
+                <i class="bi bi-pencil-square me-1"></i>Cantidad especifica
+            </label>
+        </div>
+    </div>
+
+    <!-- Campo de cantidad (Solo si es 'custom') -->
+    @if (withdrawMode === 'custom') {
+    <div class="mb-4 animate__animated animate__fadeIn">
+        <label class="form-label fw-semibold">Cantidad a retirar</label>
+        <input type="number" class="form-control form-control-lg text-center"
+            [formControl]="$any(outputForm.get('quantity'))" min="1" [max]="foundItem.quantity" placeholder="0">
+        <div class="form-text text-center">
+            Máximo {{ foundItem.quantity }} pzs
+        </div>
+    </div>
+    } @else {
+    <!-- Resumen visual cuando retira todo -->
+    <div class="alert alert-warning text-center mb-4 fw-bold">
+        Se retirarán las {{ foundItem.quantity }} piezas completas.
+    </div>
+    }
+
+    <div class="d-grid gap-2">
+        <button class="btn btn-warning btn-lg" (click)="saveOutput()"
+            [disabled]="(withdrawMode === 'custom' && !outputForm.get('quantity')?.value) || loading">
+            @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+            <i class="bi bi-check-circle me-2"></i>Confirmar Salida
+        </button>
+        <button class="btn btn-outline-secondary" (click)="outputStep = 'form'">
+            <i class="bi bi-arrow-left me-1"></i>Cambiar Magazine
+        </button>
+    </div>
+    }
+    }
+
+    <!-- ══════════════ HISTORIAL ══════════════ -->
+    @if (view === 'history' && selectedItem) {
+    <button class="btn btn-link ps-0 mb-2" (click)="goBack()">
+        <i class="bi bi-arrow-left me-1"></i>Volver
+    </button>
+    <h6 class="fw-bold mb-1">
+        <i class="bi bi-clock-history me-2"></i>{{ selectedItem.magazine }}
+    </h6>
+    <small class="text-muted d-block mb-3">{{ selectedItem.partNumber }}</small>
+
+    <div class="list-group">
+        @for (mov of movements$ | async; track mov.id) {
+        <div class="list-group-item py-2">
+            <span class="badge me-2" [class.bg-success]="mov.type === 'entrada'"
+                [class.bg-warning]="mov.type === 'salida'">
+                {{ mov.type === 'entrada' ? 'entrada' : 'salida' }}
+            </span>
+            <span class="fw-semibold">{{ mov.quantity }} pzs</span>
+            <div class="small text-muted">
+                <i class="bi bi-person me-1"></i>{{ mov.userName }}
+            </div>
+            <div class="small text-muted">
+                <i class="bi bi-calendar me-1"></i>
+                {{ mov.date?.toDate ? (mov.date.toDate() | date:'dd/MM/yyyy HH:mm') : '—' }}
+            </div>
+        </div>
+        }
+    </div>
+    }
+
+</div>
+
+<!-- ══════════════ MODAL EDITAR ══════════════ -->
+@if (showEditModal) {
+<div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5)">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar subensamble</h5>
+                <button type="button" class="btn-close" (click)="showEditModal = false"></button>
+            </div>
+            <div class="modal-body">
+                <form [formGroup]="editForm">
+                    <div class="mb-3">
+                        <label class="form-label">Magazine</label>
+                        <input type="text" class="form-control" formControlName="magazine">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Número de parte</label>
+                        <input type="text" class="form-control" formControlName="partNumber" maxlength="8">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Cantidad</label>
+                        <input type="number" class="form-control" formControlName="quantity" min="0">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" (click)="showEditModal = false">Cancelar</button>
+                <button class="btn btn-primary" (click)="saveEdit()" [disabled]="editForm.invalid || loading">
+                    @if (loading) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+}
