@@ -4,7 +4,7 @@ import { doc, Firestore, getDoc } from "@angular/fire/firestore";
 import { Router } from "@angular/router";
 import { from, of, switchMap } from "rxjs";
 
-@Injectable({providedIn: "root"})
+@Injectable({ providedIn: "root" })
 export class AuthService {
     private auth = inject(Auth)
     private firestore = inject(Firestore)

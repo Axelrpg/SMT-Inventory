@@ -43,11 +43,25 @@
         </div>
     </div>
 
+    <!-- Toggle modo de búsqueda -->
+    <div class="btn-group w-100 mb-2">
+        <button class="btn btn-sm" [class.btn-primary]="searchMode === 'name'"
+            [class.btn-outline-primary]="searchMode !== 'name'" (click)="searchMode = 'name'; clearBomSearch()">
+            <i class="bi bi-journal-text me-1"></i>Por nombre
+        </button>
+        <button class="btn btn-sm" [class.btn-primary]="searchMode === 'partNumber'"
+            [class.btn-outline-primary]="searchMode !== 'partNumber'"
+            (click)="searchMode = 'partNumber'; clearBomSearch()">
+            <i class="bi bi-upc me-1"></i>Por número de parte
+        </button>
+    </div>
+
     <!-- Búsqueda de BOMs -->
     <div class="mb-3">
         <div class="input-group">
-            <input type="text" class="form-control" placeholder="Buscar BOM..." [(ngModel)]="searchBomName"
-                (input)="onSearchBoms()" (keyup.enter)="onSearchBoms()">
+            <input type="text" class="form-control"
+                [placeholder]="searchMode === 'name' ? 'Buscar BOM por nombre...' : 'Buscar BOMs por número de parte...'"
+                [(ngModel)]="searchBomName" (input)="onSearchBoms()" (keyup.enter)="onSearchBoms()">
             @if (isSearchingBoms) {
             <button class="btn btn-outline-secondary" (click)="clearBomSearch()">
                 <i class="bi bi-x-lg"></i>
@@ -57,7 +71,12 @@
         @if (isSearchingBoms) {
         <div class="mt-1 small text-muted">
             <i class="bi bi-filter me-1"></i>
-            Resultados para: <strong>{{ searchBomName }}</strong> — {{ boms.length }} encontrados
+            @if (searchMode === 'name') {
+            Resultados para nombre: <strong>{{ searchBomName }}</strong>
+            } @else {
+            BOMs que contienen el número de parte: <strong>{{ searchBomName }}</strong>
+            }
+            — {{ boms.length }} encontrados
         </div>
         }
 

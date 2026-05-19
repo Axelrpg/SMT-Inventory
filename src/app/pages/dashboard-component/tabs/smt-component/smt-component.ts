@@ -163,8 +163,13 @@ export class SmtComponent implements OnInit {
 
   applyFilter(rolls: SmtRoll[]): SmtRoll[] {
     if (!this.searchPartNumber.trim()) return rolls;
-    const search = this.searchPartNumber.trim().toLowerCase();
-    return rolls.filter(r => r.partNumber.toLowerCase().includes(search));
+
+    const search = this.searchPartNumber.trim().toLocaleLowerCase()
+    return rolls.filter(r => {
+      const matchPartNumber = r.partNumber.toLocaleLowerCase().includes(search)
+      const matchLocation = r.location ? r.location.toLocaleLowerCase().includes(search) : false
+      return matchPartNumber || matchLocation;
+    })
   }
 
   clearSearch() {
@@ -455,8 +460,6 @@ export class SmtComponent implements OnInit {
 
   // ── Exportar a Excel ─────────────────────────────────
   async exportRolls() {
-    // Cargar todos los rollos sin paginado
-    const ref = collection(this.smtService['firestore'], 'smt_rolls');
     // Mejor agregar un método en el servicio
     const allRolls = await this.smtService.getAllRolls();
 

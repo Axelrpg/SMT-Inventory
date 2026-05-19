@@ -47,7 +47,7 @@
     <!-- Búsqueda -->
     <div class="mb-3">
         <div class="input-group">
-            <input type="text" class="form-control" placeholder="Buscar número de parte..."
+            <input type="text" class="form-control" placeholder="Buscar número de parte o ubicación..."
                 [(ngModel)]="searchPartNumber" maxlength="18" (input)="onSearch()" (keyup.enter)="onSearch()">
             <button class="btn" [class.btn-primary]="searchScannerEnabled"
                 [class.btn-outline-secondary]="!searchScannerEnabled" (click)="toggleSearchScanner()" title="Escanear">

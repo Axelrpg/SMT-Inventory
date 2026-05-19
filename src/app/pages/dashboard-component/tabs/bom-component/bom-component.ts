@@ -60,6 +60,7 @@ export class BomComponent implements OnInit {
   error = '';
   success = '';
   searchPart = '';
+  searchMode: 'name' | 'partNumber' = 'name';
 
   bulkInput = '';
   showBulkInput = false;
@@ -159,9 +160,32 @@ export class BomComponent implements OnInit {
   }
 
   onSearchBoms() {
+    if (this.searchMode === 'partNumber') {
+      this.onSearchBomsByPartNumber();
+      return;
+    }
     this.isSearchingBoms = !!this.searchBomName.trim();
     this.boms = this.applyBomFilter(this.allLoadedBoms);
     this.cdr.detectChanges();
+  }
+
+  async onSearchBomsByPartNumber() {
+    if (!this.searchBomName.trim()) {
+      this.isSearchingBoms = false;
+      await this.loadFirstBoms();
+      return;
+    }
+    this.isSearchingBoms = true;
+    this.loading = true;
+    try {
+      this.boms = await this.bomService.getBomsByPartNumber(this.searchBomName.trim());
+      this.hasMoreBoms = false;
+    } catch (e: any) {
+      this.error = e.message;
+    } finally {
+      this.loading = false;
+      this.cdr.detectChanges();
+    }
   }
 
   clearBomSearch() {

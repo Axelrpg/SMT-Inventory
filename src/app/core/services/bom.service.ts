@@ -99,6 +99,16 @@ export class BomService {
         return { movements, lastDoc: last };
     }
 
+    async getBomsByPartNumber(partNumber: string): Promise<Bom[]> {
+        const ref = collection(this.firestore, 'boms');
+        const snap = await getDocs(query(ref, orderBy('name', 'asc')));
+        const allBoms = snap.docs.map(d => ({ id: d.id, ...d.data() } as Bom));
+        // Filtrar los que tienen ese número de parte en su receta
+        return allBoms.filter(b =>
+            b.items.some(i => i.partNumber.toLowerCase().includes(partNumber.toLowerCase()))
+        );
+    }
+
     async addBom(bom: Omit<Bom, 'id'>): Promise<string> {
         const ref = collection(this.firestore, 'boms');
         const docRef = await addDoc(ref, {
