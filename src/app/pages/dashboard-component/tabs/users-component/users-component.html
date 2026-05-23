@@ -34,7 +34,7 @@
             </span>
         </div>
         <div class="d-flex gap-2">
-            <button class="btn btn-outline-primary btn-sm" (click)="openEditModel(user)">
+            <button class="btn btn-outline-primary btn-sm" (click)="openEditModal(user)">
                 <i class="bi bi-pencil"></i>
             </button>
             <button class="btn btn-outline-danger btn-sm" (click)="deleteUser(user)">
@@ -86,7 +86,7 @@
                     <div class="mb-3">
                         <label class="form-label">Rol personalizado</label>
                         <select class="form-select" formControlName="roleId">
-                            <option value="">Sin rol asignado</option>
+                            <option [value]="''">Sin rol asignado</option>
                             @for (r of availableRoles; track r.id) {
                             <option [value]="r.id">{{ r.name }}</option>
                             }

@@ -54,17 +54,19 @@ export class UsersComponent implements OnInit {
     this.showModal = true
   }
 
-  openEditModel(user: AppUser) {
-    this.editingUser = user
+  openEditModal(user: AppUser) {
+    this.editingUser = user;
     this.userForm.patchValue({
       displayName: user.displayName,
       email: user.email,
       role: user.role,
-      password: '',
+      roleId: user.roleId || '',
+      password: ''
     });
     this.userForm.get('password')?.clearValidators();
     this.userForm.get('password')?.updateValueAndValidity();
-    this.showModal = true
+    this.showModal = true;
+    this.cdr.detectChanges(); // ← forzar actualización
   }
 
   closeModal() {

@@ -15,7 +15,10 @@ export class AuthService {
 
     private permissionsSubject = new BehaviorSubject<RolePermissions | null>(null)
     permissions$ = this.permissionsSubject.asObservable();
+
     private unsubscribeRole: (() => void) | null = null
+    private unsubscribeUser: (() => void) | null = null;
+    private unsubscribeRoleListener: (() => void) | null = null;
 
     getUserRole(uid: string) {
         const ref = doc(this.firestore, `users/${uid}`)
@@ -27,13 +30,15 @@ export class AuthService {
     );
 
     listenToPermissions(uid: string) {
-        if (this.unsubscribeRole) this.unsubscribeRole();
+        // Cancelar listeners anteriores
+        if (this.unsubscribeUser) this.unsubscribeUser();
+        if (this.unsubscribeRoleListener) this.unsubscribeRoleListener();
 
         const userRef = doc(this.firestore, `users/${uid}`);
-        this.unsubscribeRole = onSnapshot(userRef, async userSnap => {
+
+        this.unsubscribeUser = onSnapshot(userRef, userSnap => {
             const userData = userSnap.data() as any;
 
-            // Admin siempre tiene acceso total
             if (userData?.role === 'admin') {
                 this.permissionsSubject.next({
                     smt: true, bom: true, subassembly: true,
@@ -42,19 +47,34 @@ export class AuthService {
                 return;
             }
 
-            // Obtener permisos del rol asignado
             const roleId = userData?.roleId;
             if (!roleId) {
                 this.permissionsSubject.next(null);
+                if (this.unsubscribeRoleListener) {
+                    this.unsubscribeRoleListener();
+                    this.unsubscribeRoleListener = null;
+                }
                 return;
             }
 
+            // Cancelar listener de rol anterior si el roleId cambió
+            if (this.unsubscribeRoleListener) {
+                this.unsubscribeRoleListener();
+            }
+
+            // Escuchar cambios en el rol específico de ESTE usuario
             const roleRef = doc(this.firestore, `roles/${roleId}`);
-            this.unsubscribeRole = onSnapshot(roleRef, roleSnap => {
+            this.unsubscribeRoleListener = onSnapshot(roleRef, roleSnap => {
                 const roleData = roleSnap.data() as any;
                 this.permissionsSubject.next(roleData?.permissions || null);
             });
         });
+
+        // Guardar referencia para cancelar en logout
+        this.unsubscribeRole = () => {
+            if (this.unsubscribeUser) this.unsubscribeUser();
+            if (this.unsubscribeRoleListener) this.unsubscribeRoleListener();
+        };
     }
 
     async login(email: string, password: string) {
