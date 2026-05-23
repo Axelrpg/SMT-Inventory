@@ -41,6 +41,7 @@ export const createUser = onCall(
 export const updateUser = onCall(
     {
         cors: ['https://inventory-cfba7.web.app', 'http://localhost:4200'],
+        invoker: 'public',
     },
     async (request) => {
         if (!request.auth) {
@@ -52,12 +53,11 @@ export const updateUser = onCall(
             .get();
 
         if (callerDoc.data()?.role !== 'admin') {
-            throw new HttpsError('permission-denied', 'Solo admins pueden actualizar usuarios');
+            throw new HttpsError('permission-denied', 'Solo admins pueden editar usuarios');
         }
 
-        const { uid, email, displayName, role } = request.data;
+        const { uid, email, displayName, role, roleId } = request.data;
 
-        // Actualizar Auth solo con los campos que vienen
         const authUpdate: any = {};
         if (email) authUpdate.email = email;
         if (displayName) authUpdate.displayName = displayName;
@@ -70,6 +70,7 @@ export const updateUser = onCall(
         if (email) firestoreUpdate.email = email;
         if (displayName) firestoreUpdate.displayName = displayName;
         if (role) firestoreUpdate.role = role;
+        if (roleId !== undefined) firestoreUpdate.roleId = roleId;
 
         if (Object.keys(firestoreUpdate).length > 0) {
             firestoreUpdate.updatedAt = FieldValue.serverTimestamp();
@@ -77,7 +78,7 @@ export const updateUser = onCall(
             await admin.firestore().doc(`users/${uid}`).update(firestoreUpdate);
         }
 
-        return { message: 'Usuario actualizado exitosamente' };
+        return { message: 'Usuario actualizado correctamente' };
     }
 );
 

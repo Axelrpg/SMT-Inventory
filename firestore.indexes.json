@@ -1,4 +1,47 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "bom_movements",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "bomId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "date",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "subassembly_movements",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "subassemblyId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "date",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "smt_movements",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "rollId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "date",
+          "order": "DESCENDING"
+        }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }
