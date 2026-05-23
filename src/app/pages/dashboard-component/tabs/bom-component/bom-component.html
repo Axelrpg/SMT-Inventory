@@ -47,12 +47,12 @@
     <div class="btn-group w-100 mb-2">
         <button class="btn btn-sm" [class.btn-primary]="searchMode === 'name'"
             [class.btn-outline-primary]="searchMode !== 'name'" (click)="searchMode = 'name'; clearBomSearch()">
-            <i class="bi bi-journal-text me-1"></i>Por nombre
+            <i class="bi bi-journal-text me-1"></i>Por modelo
         </button>
         <button class="btn btn-sm" [class.btn-primary]="searchMode === 'partNumber'"
             [class.btn-outline-primary]="searchMode !== 'partNumber'"
             (click)="searchMode = 'partNumber'; clearBomSearch()">
-            <i class="bi bi-upc me-1"></i>Por número de parte
+            <i class="bi bi-upc me-1"></i>Para uso de rollo
         </button>
     </div>
 

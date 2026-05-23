@@ -71,10 +71,10 @@
                         <input type="email" class="form-control" formControlName="email">
                     </div>
                     @if (!editingUser) {
-                        <div class="mb-3">
-                            <label class="form-label">Contraseña</label>
-                            <input type="password" class="form-control" formControlName="password">
-                        </div>
+                    <div class="mb-3">
+                        <label class="form-label">Contraseña</label>
+                        <input type="password" class="form-control" formControlName="password">
+                    </div>
                     }
                     <div class="mb-3">
                         <label class="form-label">Rol</label>
@@ -83,13 +83,24 @@
                             <option value="admin">Administrador</option>
                         </select>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label">Rol personalizado</label>
+                        <select class="form-select" formControlName="roleId">
+                            <option value="">Sin rol asignado</option>
+                            @for (r of availableRoles; track r.id) {
+                            <option [value]="r.id">{{ r.name }}</option>
+                            }
+                        </select>
+                        <div class="form-text">Define qué tabs puede ver este usuario</div>
+                    </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" (click)="closeModal()">Cancelar</button>
-                <button type="button" class="btn btn-primary" (click)="saveUser()" [disabled]="userForm.invalid || loading">
+                <button type="button" class="btn btn-primary" (click)="saveUser()"
+                    [disabled]="userForm.invalid || loading">
                     @if (loading) {
-                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    <span class="spinner-border spinner-border-sm me-1"></span>
                     }
                     {{ editingUser ? 'Guardar Cambios' : 'Crear Usuario' }}
                 </button>

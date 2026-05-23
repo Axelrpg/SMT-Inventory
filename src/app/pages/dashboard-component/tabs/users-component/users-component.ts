@@ -2,6 +2,8 @@ import { ChangeDetectorRef, Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { UserService } from '../../../../core/services/user.service';
 import { AppUser } from '../../../../core/models/user.model';
+import { RoleService } from '../../../../core/services/role.service';
+import { Role } from '../../../../core/models/role.model';
 
 @Component({
   selector: 'app-users-component',
@@ -10,10 +12,12 @@ import { AppUser } from '../../../../core/models/user.model';
 })
 export class UsersComponent implements OnInit {
   private userService = inject(UserService);
+  private roleService = inject(RoleService)
   private fb = inject(FormBuilder);
   private cdr = inject(ChangeDetectorRef);
 
   users: AppUser[] = [];
+  availableRoles: Role[] = [];
   loading = false;
   error = ''
   success = ''
@@ -25,9 +29,10 @@ export class UsersComponent implements OnInit {
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.minLength(6)]],
     role: ['user', Validators.required],
+    roleId: ['']
   });
 
-  ngOnInit(): void {
+  async ngOnInit() {
     this.userService.getUsers().subscribe({
       next: (users) => {
         this.users = users;
@@ -38,6 +43,7 @@ export class UsersComponent implements OnInit {
         this.cdr.detectChanges();
       }
     })
+    this.availableRoles = await this.roleService.getAll()
   }
 
   openCreateModel() {
@@ -72,12 +78,13 @@ export class UsersComponent implements OnInit {
     this.error = ''
 
     try {
-      const { displayName, email, password, role } = this.userForm.value;
+      const { displayName, email, password, role, roleId } = this.userForm.value;
       if (this.editingUser) {
         await this.userService.updateUser(this.editingUser.uid, {
           email: email!,
           displayName: displayName!,
-          role: role!
+          role: role!,
+          roleId: roleId || ''
         });
         this.success = 'Usuario actualizado correctamente';
       } else {
@@ -85,7 +92,8 @@ export class UsersComponent implements OnInit {
           displayName: displayName!,
           email: email!,
           password: password!,
-          role: role!
+          role: role!,
+          roleId: roleId || ''
         });
         this.success = 'Usuario creado correctamente';
       }

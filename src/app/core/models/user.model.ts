@@ -3,5 +3,6 @@ export interface AppUser {
     email: string;
     displayName: string;
     role: 'admin' | 'user';
+    roleId: string;
     disabled: boolean;
 }

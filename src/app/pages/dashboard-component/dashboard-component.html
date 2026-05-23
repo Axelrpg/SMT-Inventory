@@ -1,74 +1,119 @@
-<div class="min-vh-100 bg-light d-flex flex-column">
-    <nav class="navbar navbar-dark bg-primary px-3">
-        <span class="navbar-brand fw-bold">
-            <i class="bi bi-box-seam me-2">
-                Smart Production Control
-            </i>
-        </span>
-        <button class="btn btn-outline-light btn-sm" (click)="logout()">
-            <i class="bi bi-box-arrow-right me-1"></i>
-            Cerrar Sesión
-        </button>
-    </nav>
+<div class="dashboard-wrapper">
 
-    <ul class="nav nav-tabs bg-white px-2 pt-2 shadow-sm">
-        <li class="nav-item">
-            <button class="nav-link" [class.active]="activeTab === 'SMT'" (click)="setTab('SMT')">
-                <i class="bi bi-grid me-1"></i>
-                SMT
-            </button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link" [class.active]="activeTab === 'BOM'" (click)="setTab('BOM')">
-                <i class="bi bi-list me-1"></i>
-                BOM
-            </button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link" [class.active]="activeTab === 'Subassembly'" (click)="setTab('Subassembly')">
-                <i class="bi bi-layers me-1"></i>
-                Subensambles
-            </button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link" [class.active]="activeTab === 'Families'" (click)="setTab('Families')">
-                <i class="bi bi-diagram-3 me-1"></i>Familias
-            </button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link" [class.active]="activeTab === 'History'" (click)="setTab('History')">
-                <i class="bi bi-clock-history me-1"></i>
-                Historial
-            </button>
-        </li>
-        @if (isAdmin) {
-        <li class="nav-item">
-            <button class="nav-link" [class.active]="activeTab === 'users'" (click)="setTab('users')">
-                <i class="bi bi-people me-1"></i>
-                Usuarios
-            </button>
-        </li>
-        }
-    </ul>
+    <!-- Overlay para móvil -->
+    @if (sidebarOpen) {
+    <div class="sidebar-overlay" (click)="sidebarOpen = false"></div>
+    }
 
-    <div class="container-fluid p-3 flex-grow-1">
-        @if (activeTab === 'SMT') {
-        <app-smt-component />
-        }
-        @if (activeTab === 'BOM') {
-        <app-bom-component />
-        }
-        @if (activeTab === 'Subassembly') {
-        <app-subassembly-component />
-        }
-        @if (activeTab === 'Families') {
-        <app-families-component />
-        }
-        @if (activeTab === 'History') {
-        <app-history-component />
-        }
-        @if (activeTab === 'users' && isAdmin) {
-        <app-users-component />
-        }
+    <!-- Sidebar -->
+    <aside class="sidebar" [class.open]="sidebarOpen">
+        <div class="sidebar-header">
+            <i class="bi bi-box-seam me-2"></i>
+            <span class="fw-bold">SMT Inventory</span>
+            <button class="btn btn-link text-white ms-auto d-lg-none p-0" (click)="sidebarOpen = false">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+
+        <div class="sidebar-user">
+            <i class="bi bi-person-circle me-2"></i>
+            <span class="small">{{ userName }}</span>
+        </div>
+
+        <nav class="sidebar-nav">
+
+            @if (canView('smt')) {
+            <button class="sidebar-item" [class.active]="activeTab === 'smt'" (click)="setTab('smt')">
+                <i class="bi bi-upc-scan"></i>
+                <span>SMT</span>
+            </button>
+            }
+
+            @if (canView('bom')) {
+            <button class="sidebar-item" [class.active]="activeTab === 'bom'" (click)="setTab('bom')">
+                <i class="bi bi-journal-text"></i>
+                <span>BOM</span>
+            </button>
+            }
+
+            @if (canView('subassembly')) {
+            <button class="sidebar-item" [class.active]="activeTab === 'subassembly'" (click)="setTab('subassembly')">
+                <i class="bi bi-layers"></i>
+                <span>Subensambles</span>
+            </button>
+            }
+
+            @if (canView('history')) {
+            <button class="sidebar-item" [class.active]="activeTab === 'history'" (click)="setTab('history')">
+                <i class="bi bi-clock-history"></i>
+                <span>Historial</span>
+            </button>
+            }
+
+            @if (isAdmin) {
+            <div class="sidebar-divider">Admin</div>
+
+            @if (canView('users')) {
+            <button class="sidebar-item" [class.active]="activeTab === 'users'" (click)="setTab('users')">
+                <i class="bi bi-people"></i>
+                <span>Usuarios</span>
+            </button>
+            }
+
+            @if (canView('families')) {
+            <button class="sidebar-item" [class.active]="activeTab === 'families'" (click)="setTab('families')">
+                <i class="bi bi-diagram-3"></i>
+                <span>Familias</span>
+            </button>
+            }
+
+            <button class="sidebar-item" [class.active]="activeTab === 'roles'" (click)="setTab('roles')">
+                <i class="bi bi-shield-lock"></i>
+                <span>Roles</span>
+            </button>
+            }
+
+        </nav>
+
+        <div class="sidebar-footer">
+            <button class="sidebar-item text-danger" (click)="logout()">
+                <i class="bi bi-box-arrow-right"></i>
+                <span>Cerrar sesión</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Contenido principal -->
+    <div class="main-content">
+
+        <!-- Topbar móvil -->
+        <header class="topbar">
+            <button class="btn btn-link p-0 btn-sidebar-toggle" (click)="toggleSidebar()">
+                <i class="bi bi-list fs-4"></i>
+            </button>
+            <span class="fw-bold ms-2">
+                @switch (activeTab) {
+                @case ('smt') { SMT }
+                @case ('bom') { BOM }
+                @case ('subassembly') { Subensambles }
+                @case ('history') { Historial }
+                @case ('users') { Usuarios }
+                @case ('families') { Familias }
+                @case ('roles') { Roles }
+                }
+            </span>
+        </header>
+
+        <!-- Tabs -->
+        <div class="tab-content">
+            @if (activeTab === 'smt') { <app-smt-component /> }
+            @if (activeTab === 'bom') { <app-bom-component /> }
+            @if (activeTab === 'subassembly') { <app-subassembly-component /> }
+            @if (activeTab === 'history') { <app-history-component /> }
+            @if (activeTab === 'users') { <app-users-component /> }
+            @if (activeTab === 'families') { <app-families-component /> }
+            @if (activeTab === 'roles') { <app-roles-component /> }
+        </div>
+
     </div>
 </div>

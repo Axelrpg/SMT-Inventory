@@ -20,12 +20,13 @@ export class UserService {
         password: string;
         displayName: string;
         role: string;
+        roleId: string;
     }) {
         const fn = httpsCallable(this.functions, 'createUser');
         return fn(data);
     }
 
-    async updateUser(uid: string, data: { email: string; displayName: string; role: string }) {
+    async updateUser(uid: string, data: { email: string; displayName: string; role: string, roleId: string }) {
         const fn = httpsCallable(this.functions, 'updateUser');
         return fn({ uid, ...data });
     }
