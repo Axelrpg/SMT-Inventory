@@ -33,13 +33,15 @@ export class RolesComponent implements OnInit {
     { key: 'smt', label: 'SMT', icon: 'bi-upc-scan' },
     { key: 'bom', label: 'BOM', icon: 'bi-journal-text' },
     { key: 'subassembly', label: 'Subensambles', icon: 'bi-layers' },
+    { key: 'hilight', label: 'Hilight', icon: 'bi-lightning' },
+    { key: 'hl', label: 'HL', icon: 'bi-box' },
     { key: 'history', label: 'Historial', icon: 'bi-clock-history' },
     { key: 'users', label: 'Usuarios', icon: 'bi-people' },
     { key: 'families', label: 'Familias', icon: 'bi-diagram-3' },
   ];
 
   permissions: RolePermissions = {
-    smt: false, bom: false, subassembly: false,
+    smt: false, bom: false, subassembly: false, hilight: false, hl: false,
     history: false, users: false, families: false
   };
 
@@ -67,7 +69,7 @@ export class RolesComponent implements OnInit {
     this.editingRole = null;
     this.roleForm.reset();
     this.permissions = {
-      smt: false, bom: false, subassembly: false,
+      smt: false, bom: false, subassembly: false, hilight: false, hl: false,
       history: false, users: false, families: false
     };
     this.error = '';
@@ -82,6 +84,8 @@ export class RolesComponent implements OnInit {
       smt: role.permissions.smt ?? false,
       bom: role.permissions.bom ?? false,
       subassembly: role.permissions.subassembly ?? false,
+      hilight: role.permissions.hilight ?? false,
+      hl: role.permissions.hl ?? false,
       history: role.permissions.history ?? false,
       users: role.permissions.users ?? false,
       families: role.permissions.families ?? false
@@ -105,6 +109,8 @@ export class RolesComponent implements OnInit {
       smt: value,
       bom: value,
       subassembly: value,
+      hilight: value,
+      hl: value,
       history: value,
       users: value,
       families: value

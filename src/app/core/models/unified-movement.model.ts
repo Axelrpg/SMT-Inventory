@@ -1,6 +1,6 @@
 export interface UnifiedMovement {
     id?: string;
-    source: 'smt' | 'bom' | 'subassembly';
+    source: 'smt' | 'bom' | 'subassembly' | 'hilight' | 'hl';
     type: 'entrada' | 'salida';
     partNumber?: string;
     bomName?: string;

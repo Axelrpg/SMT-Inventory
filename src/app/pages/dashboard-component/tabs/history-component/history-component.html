@@ -16,6 +16,11 @@
             <button class="btn btn-sm" [class.btn-primary]="filterSource === 'subassembly'"
                 [class.btn-outline-primary]="filterSource !== 'subassembly'"
                 (click)="setFilterSource('subassembly')">Subensambles</button>
+            <button class="btn btn-sm" [class.btn-primary]="filterSource === 'hilight'"
+                [class.btn-outline-primary]="filterSource !== 'hilight'"
+                (click)="setFilterSource('hilight')">Hilight</button>
+            <button class="btn btn-sm" [class.btn-primary]="filterSource === 'hl'"
+                [class.btn-outline-primary]="filterSource !== 'hl'" (click)="setFilterSource('hl')">HL</button>
         </div>
 
         <!-- Filtro de tipo -->
@@ -58,7 +63,7 @@
                 <div>
                     <!-- Badge origen -->
                     <span class="badge me-1"
-                        [style.background]="mov.source === 'smt' ? '#0d6efd' : mov.source === 'bom' ? '#6f42c1' : '#0dcaf0'">
+                        [style.background]="mov.source === 'smt' ? '#0d6efd' : mov.source === 'bom' ? '#6f42c1' : mov.source === 'hilight' ? '#FF008A' : mov.source === 'hl' ? '#AE26B5' : '#dc3545'">
                         {{ sourceLabel(mov.source) }}
                     </span>
                     <!-- Badge tipo -->
@@ -71,8 +76,11 @@
                     <div class="fw-semibold mt-1">
                         {{ movementDetail(mov) }}
                         <span class="text-muted fw-normal">
-                            — {{ mov.source === 'bom' ? 'x' : '' }}{{ mov.quantity }}
-                            {{ mov.source !== 'bom' ? 'pzs' : '' }}
+                            —
+                            {{ mov.source === 'bom' ? 'x' : '' }}
+                            {{ mov.quantity }}
+                            {{ mov.source === 'hl' || mov.source === 'hilight' ? ' metro(s)' : '' }}
+                            {{ mov.source !== 'bom' && mov.source !== 'hl' && mov.source !== 'hilight' ? ' pzs' : '' }}
                         </span>
                     </div>
 

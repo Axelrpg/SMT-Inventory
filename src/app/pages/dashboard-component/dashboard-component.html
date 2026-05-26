@@ -9,7 +9,7 @@
     <aside class="sidebar" [class.open]="sidebarOpen">
         <div class="sidebar-header">
             <i class="bi bi-box-seam me-2"></i>
-            <span class="fw-bold">SMT Inventory</span>
+            <span class="fw-bold">Smart Production Control</span>
             <button class="btn btn-link text-white ms-auto d-lg-none p-0" (click)="sidebarOpen = false">
                 <i class="bi bi-x-lg"></i>
             </button>
@@ -40,6 +40,20 @@
             <button class="sidebar-item" [class.active]="activeTab === 'subassembly'" (click)="setTab('subassembly')">
                 <i class="bi bi-layers"></i>
                 <span>Subensambles</span>
+            </button>
+            }
+
+            @if (canView('hilight')) {
+            <button class="sidebar-item" [class.active]="activeTab === 'hilight'" (click)="setTab('hilight')">
+                <i class="bi bi-lightning"></i>
+                <span>Hilight</span>
+            </button>
+            }
+
+            @if (canView('hl')) {
+            <button class="sidebar-item" [class.active]="activeTab === 'hl'" (click)="setTab('hl')">
+                <i class="bi bi-box"></i>
+                <span>HL</span>
             </button>
             }
 
@@ -96,6 +110,8 @@
                 @case ('smt') { SMT }
                 @case ('bom') { BOM }
                 @case ('subassembly') { Subensambles }
+                @case ('hilight') { Hilight }
+                @case ('hl') { HL }
                 @case ('history') { Historial }
                 @case ('users') { Usuarios }
                 @case ('families') { Familias }
@@ -109,6 +125,8 @@
             @if (activeTab === 'smt') { <app-smt-component /> }
             @if (activeTab === 'bom') { <app-bom-component /> }
             @if (activeTab === 'subassembly') { <app-subassembly-component /> }
+            @if (activeTab === 'hilight') { <app-hilight-component /> }
+            @if (activeTab === 'hl') { <app-hl-component /> }
             @if (activeTab === 'history') { <app-history-component /> }
             @if (activeTab === 'users') { <app-users-component /> }
             @if (activeTab === 'families') { <app-families-component /> }

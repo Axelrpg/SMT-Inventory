@@ -41,6 +41,34 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "hilight_movements",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "rollId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "date",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "hl_movements",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "hlId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "date",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

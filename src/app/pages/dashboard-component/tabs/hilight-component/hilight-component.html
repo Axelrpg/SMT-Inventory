@@ -1,4 +1,4 @@
-<div class="smt-container">
+<div class="hilight-container">
 
     @if (success) {
     <div class="alert alert-success py-2 small">{{ success }}</div>
@@ -9,8 +9,9 @@
 
     <!-- ══════════════ LISTA ══════════════ -->
     @if (view === 'list') {
+
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h6 class="fw-bold mb-0"><i class="bi bi-upc-scan me-2"></i>Rollos SMT</h6>
+        <h6 class="fw-bold mb-0"><i class="bi bi-lightning me-2"></i>Hilight</h6>
         <div class="d-flex gap-2">
             <button class="btn btn-outline-success btn-sm" (click)="exportRolls()">
                 <i class="bi bi-file-earmark-excel me-1"></i>Rollos
@@ -21,7 +22,6 @@
         </div>
     </div>
 
-    <!-- Botones entrada/salida -->
     <div class="d-grid gap-2 mb-3">
         <button class="btn btn-success" (click)="openInput()">
             <i class="bi bi-box-arrow-in-down me-2"></i>Registrar Entrada
@@ -31,7 +31,7 @@
         </button>
     </div>
 
-    <!-- Selector de tamaño de página -->
+    <!-- Selector de página -->
     <div class="d-flex align-items-center justify-content-end gap-2 mb-2">
         <small class="text-muted">Mostrar:</small>
         <div class="btn-group btn-group-sm">
@@ -107,10 +107,9 @@
                     <small class="text-muted d-block">
                         <i class="bi bi-geo-alt me-1"></i>{{ roll.location }}
                     </small>
-                    <span class="badge mt-1" [class.bg-success]="roll.quantity > 10"
-                        [class.bg-warning]="roll.quantity > 0 && roll.quantity <= 10"
-                        [class.bg-danger]="roll.quantity === 0">
-                        {{ roll.quantity }} pzs
+                    <span class="badge mt-1" [class.bg-success]="roll.length > 10"
+                        [class.bg-warning]="roll.length > 0 && roll.length <= 10" [class.bg-danger]="roll.length === 0">
+                        {{ roll.length }} metros
                     </span>
                 </div>
                 <div class="d-flex gap-1">
@@ -140,7 +139,6 @@
         }
     </div>
 
-    <!-- Botón cargar más -->
     @if (hasMore && !isSearching) {
     <div class="text-center mt-3">
         <button class="btn btn-outline-secondary btn-sm px-4" (click)="loadMore()" [disabled]="loadingMore">
@@ -158,7 +156,9 @@
     <button class="btn btn-link ps-0 mb-3" (click)="goBack()">
         <i class="bi bi-arrow-left me-1"></i>Cancelar
     </button>
-    <h6 class="fw-bold mb-3"><i class="bi bi-box-arrow-in-down me-2 text-success"></i>Registrar Entrada</h6>
+    <h6 class="fw-bold mb-3">
+        <i class="bi bi-box-arrow-in-down me-2 text-success"></i>Registrar Entrada
+    </h6>
 
     <form [formGroup]="inputForm">
 
@@ -196,9 +196,9 @@
         </div>
 
         <div class="mb-3">
-            <label class="form-label fw-semibold">Cantidad (stock)</label>
-            <input type="number" class="form-control form-control-lg text-center" formControlName="quantity" min="1"
-                step="1" placeholder="Ej. 50">
+            <label class="form-label fw-semibold">Longitud (metros)</label>
+            <input type="number" class="form-control form-control-lg text-center" formControlName="length" min="1"
+                step="1" placeholder="Ej. 50.5">
         </div>
 
         <div class="mb-4">
@@ -231,7 +231,6 @@
         <i class="bi bi-box-arrow-up me-2 text-warning"></i>Registrar Salida
     </h6>
 
-    <!-- ── Paso 1: Ingresar número de parte ── -->
     @if (outputStep === 'form') {
     <form [formGroup]="outputForm">
         <div class="mb-3">
@@ -247,7 +246,6 @@
                     </i>
                 </button>
             </div>
-            <!-- Contador -->
             <div class="d-flex justify-content-end mt-1">
                 <small
                     [class.text-danger]="(outputForm.get('partNumber')?.value?.length ?? 0) > 0 && (outputForm.get('partNumber')?.value?.length ?? 0) < 18"
@@ -258,13 +256,11 @@
             </div>
         </div>
 
-        <!-- Escáner -->
         @if (scannerEnabled) {
         <div class="scanner-wrapper rounded overflow-hidden mb-3">
-            <zxing-scanner [enable]="scannerEnabled" [formats]="formats" (scanSuccess)="onCodeScanned($event)">
+            <zxing-scanner [enable]="scannerEnabled" [formats]="searchFormats" (scanSuccess)="onCodeScanned($event)">
             </zxing-scanner>
         </div>
-        <p class="text-muted small text-center">Apunta al código de barras o QR</p>
         }
 
         <button class="btn btn-warning w-100" (click)="searchRolls()"
@@ -275,12 +271,10 @@
     </form>
     }
 
-    <!-- ── Paso 2: Seleccionar ubicación ── -->
-    @if (outputStep === 'ubicaciones') {
+    @if (outputStep === 'locations') {
     <div class="alert alert-info py-2 small mb-3">
         <i class="bi bi-info-circle me-1"></i>
-        Se encontraron <strong>{{ foundRolls.length }} ubicaciones</strong>
-        para <strong>{{ outputForm.get('partNumber')?.value }}</strong>.
+        <strong>{{ foundRolls.length }} ubicaciones</strong> disponibles.
         Selecciona de cuál retirar:
     </div>
 
@@ -289,15 +283,12 @@
         <button class="list-group-item list-group-item-action" (click)="selectRoll(roll)">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
-                    <div class="fw-semibold">
-                        <i class="bi bi-geo-alt me-1 text-danger"></i>{{ roll.location }}
-                    </div>
-                    <small class="text-muted">{{ roll.partNumber }}</small>
+                    <i class="bi bi-geo-alt me-1 text-danger"></i>
+                    <span class="fw-semibold">{{ roll.location }}</span>
                 </div>
-                <span class="badge fs-6" [class.bg-success]="roll.quantity > 10"
-                    [class.bg-warning]="roll.quantity > 0 && roll.quantity <= 10"
-                    [class.bg-danger]="roll.quantity === 0">
-                    {{ roll.quantity }} pzs
+                <span class="badge" [class.bg-success]="roll.length > 10"
+                    [class.bg-warning]="roll.length > 0 && roll.length <= 10" [class.bg-danger]="roll.length === 0">
+                    {{ roll.length }}m
                 </span>
             </div>
         </button>
@@ -309,45 +300,38 @@
     </button>
     }
 
-    <!-- ── Paso 3: Confirmar cantidad ── -->
-    @if (outputStep === 'confirmar' && selectedRoll) {
+    @if (outputStep === 'confirm' && selectedRoll) {
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body">
-            <div class="fw-bold fs-6">{{ selectedRoll.partNumber }}</div>
+            <div class="fw-bold">{{ selectedRoll.partNumber }}</div>
             <small class="text-muted d-block">
                 <i class="bi bi-geo-alt me-1"></i>{{ selectedRoll.location }}
             </small>
-            <div class="mt-2">
-                <span class="badge fs-6" [class.bg-success]="selectedRoll.quantity > 10"
-                    [class.bg-warning]="selectedRoll.quantity > 0 && selectedRoll.quantity <= 10"
-                    [class.bg-danger]="selectedRoll.quantity === 0">
-                    Disponible: {{ selectedRoll.quantity }} pzs
-                </span>
-            </div>
+            <span class="badge mt-2 fs-6" [class.bg-success]="selectedRoll.length > 10"
+                [class.bg-warning]="selectedRoll.length > 0 && selectedRoll.length <= 10"
+                [class.bg-danger]="selectedRoll.length === 0">
+                Disponible: {{ selectedRoll.length }}m
+            </span>
         </div>
     </div>
 
-    @if (error) {
-    <div class="alert alert-danger py-2 small">{{ error }}</div>
-    }
-
     <div class="mb-4">
-        <label class="form-label fw-semibold">Cantidad a retirar</label>
+        <label class="form-label fw-semibold">Longitud a retirar (metros)</label>
         <input type="number" class="form-control form-control-lg text-center"
-            [formControl]="$any(outputForm.get('quantity'))" min="1" [max]="selectedRoll!.quantity"
-            placeholder="Ej. 100">
+            [formControl]="$any(outputForm.get('length'))" min="0.01" step="0.01" [max]="selectedRoll.length"
+            placeholder="0.00">
         <div class="form-text text-center">
-            Máximo {{ selectedRoll!.quantity }} pzs
+            Máximo {{ selectedRoll.length }}m
         </div>
     </div>
 
     <div class="d-grid gap-2">
         <button class="btn btn-warning btn-lg" (click)="saveOutput()"
-            [disabled]="!outputForm.get('quantity')?.value || loading">
+            [disabled]="!outputForm.get('length')?.value || loading">
             @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
-            <i class="bi bi-box-arrow-up me-2"></i>Confirmar Salida
+            Confirmar Salida
         </button>
-        <button class="btn btn-outline-secondary" (click)="outputStep = foundRolls.length > 1 ? 'ubicaciones' : 'form'">
+        <button class="btn btn-outline-secondary" (click)="outputStep = foundRolls.length > 1 ? 'locations' : 'form'">
             <i class="bi bi-arrow-left me-1"></i>Volver
         </button>
     </div>
@@ -360,27 +344,23 @@
         <i class="bi bi-arrow-left me-1"></i>Volver
     </button>
     <h6 class="fw-bold mb-3">
-        <i class="bi bi-clock-history me-2"></i>Historial — {{ selectedRoll.partNumber }}
+        <i class="bi bi-clock-history me-2"></i>{{ selectedRoll.partNumber }}
     </h6>
 
     <div class="list-group">
         @for (mov of movements$ | async; track mov.id) {
-        <div class="list-group-item">
-            <div class="d-flex justify-content-between align-items-start">
-                <div>
-                    <span class="badge me-2" [class.bg-success]="mov.type === 'entrada'"
-                        [class.bg-warning]="mov.type === 'salida'">
-                        {{ mov.type }}
-                    </span>
-                    <span class="fw-semibold">{{ mov.quantity }} pzs</span>
-                    <div class="small text-muted">
-                        <i class="bi bi-person me-1"></i>{{ mov.userName }}
-                    </div>
-                    <div class="small text-muted">
-                        <i class="bi bi-calendar me-1"></i>
-                        {{ mov.date?.toDate ? (mov.date.toDate() | date:'dd/MM/yyyy HH:mm') : '—' }}
-                    </div>
-                </div>
+        <div class="list-group-item py-2">
+            <span class="badge me-2" [class.bg-success]="mov.type === 'input'"
+                [class.bg-warning]="mov.type === 'output'">
+                {{ mov.type === 'input' ? 'entrada' : 'salida' }}
+            </span>
+            <span class="fw-semibold">{{ mov.length }}m</span>
+            <div class="small text-muted mt-1">
+                <i class="bi bi-person me-1"></i>{{ mov.userName }}
+            </div>
+            <div class="small text-muted">
+                <i class="bi bi-calendar me-1"></i>
+                {{ mov.date?.toDate ? (mov.date.toDate() | date:'dd/MM/yyyy HH:mm') : '—' }}
             </div>
         </div>
         }
@@ -389,7 +369,7 @@
 
 </div>
 
-<!-- ══════════════ MODAL EDITAR ══════════════ -->
+<!-- Modal editar -->
 @if (showEditModal) {
 <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5)">
     <div class="modal-dialog modal-dialog-centered">
@@ -405,8 +385,8 @@
                         <input type="text" class="form-control" formControlName="partNumber" maxlength="18">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Cantidad</label>
-                        <input type="number" class="form-control" formControlName="quantity" min="0">
+                        <label class="form-label">Longitud (metros)</label>
+                        <input type="number" class="form-control" formControlName="length" min="0" step="0.01">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Ubicación</label>

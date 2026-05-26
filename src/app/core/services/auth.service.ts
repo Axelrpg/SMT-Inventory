@@ -41,7 +41,7 @@ export class AuthService {
 
             if (userData?.role === 'admin') {
                 this.permissionsSubject.next({
-                    smt: true, bom: true, subassembly: true,
+                    smt: true, bom: true, subassembly: true, hilight: true, hl: true,
                     history: true, users: true, families: true
                 });
                 return;

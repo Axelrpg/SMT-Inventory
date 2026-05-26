@@ -1,5 +1,4 @@
 import { Component, inject, OnInit, ChangeDetectorRef, HostListener } from '@angular/core';
-import { AsyncPipe } from '@angular/common';
 import { AuthService } from '../../core/services/auth.service';
 import { RolePermissions } from '../../core/models/role.model';
 import { UsersComponent } from './tabs/users-component/users-component';
@@ -9,15 +8,16 @@ import { SubassemblyComponent } from './tabs/subassembly-component/subassembly-c
 import { FamiliesComponent } from './tabs/families-component/families-component';
 import { HistoryComponent } from './tabs/history-component/history-component';
 import { RolesComponent } from './tabs/roles-component/roles-component';
+import { HilightComponent } from './tabs/hilight-component/hilight-component';
+import { HlComponent } from './tabs/hl-component/hl-component';
 
-type Tab = 'smt' | 'bom' | 'subassembly' | 'history' | 'users' | 'families' | 'roles';
+type Tab = 'smt' | 'bom' | 'subassembly' | 'hilight' | 'hl' | 'history' | 'users' | 'families' | 'roles';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
   imports: [
-    AsyncPipe, UsersComponent,
-    SmtComponent, BomComponent, SubassemblyComponent,
+    UsersComponent, SmtComponent, BomComponent, SubassemblyComponent, HilightComponent, HlComponent,
     FamiliesComponent, HistoryComponent, RolesComponent
   ],
   templateUrl: './dashboard-component.html',
@@ -65,7 +65,7 @@ export class DashboardComponent implements OnInit {
   }
 
   getFirstAllowedTab(): Tab | null {
-    const tabs: Tab[] = ['smt', 'bom', 'subassembly', 'history', 'users', 'families'];
+    const tabs: Tab[] = ['smt', 'bom', 'subassembly', 'hilight', 'hl', 'history', 'users', 'families'];
     return tabs.find(t => this.canView(t)) || null;
   }
 

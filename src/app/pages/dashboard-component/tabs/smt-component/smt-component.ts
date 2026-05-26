@@ -256,21 +256,19 @@ export class SmtComponent implements OnInit {
   onCodeScanned(code: string) {
     if (!code) return;
     this.scannerEnabled = false;
-    this.inputMode = 'manual';
-
-    const trimmed = code.substring(0, 18); // ← recorta si el escáner devuelve más
+    const trimmed = code.substring(0, 18);
 
     if (this.view === 'input') {
       if (this.scanTarget === 'partNumber') {
         this.inputForm.patchValue({ partNumber: trimmed });
+      } else if (this.scanTarget === 'location') {
+        this.inputForm.patchValue({ location: trimmed });
       }
     }
 
     if (this.view === 'output') {
       if (this.scanTarget === 'partNumber') {
         this.outputForm.patchValue({ partNumber: trimmed });
-      } else if (this.scanTarget === 'location') {
-        this.outputForm.patchValue({ location: trimmed });
       }
     }
 

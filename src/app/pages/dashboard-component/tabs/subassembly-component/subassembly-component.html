@@ -155,6 +155,17 @@
 
     <form [formGroup]="inputForm">
 
+        <!-- Escáner -->
+        @if (scannerEnabled) {
+        <div class="scanner-wrapper rounded overflow-hidden mb-3">
+            <zxing-scanner [enable]="scannerEnabled" [formats]="formats" (scanSuccess)="onCodeScanned($event)">
+            </zxing-scanner>
+        </div>
+        <p class="text-muted small text-center">
+            Escaneando {{ scanTarget === 'magazine' ? 'magazine' : 'número de parte' }}
+        </p>
+        }
+
         <!-- Magazine -->
         <div class="mb-3">
             <label class="form-label fw-semibold">Magazine</label>
@@ -174,8 +185,8 @@
         <div class="mb-3">
             <label class="form-label fw-semibold">Número de parte</label>
             <div class="input-group">
-                <input type="text" class="form-control" formControlName="partNumber" placeholder="Ej. ABC-1234" maxlength="8"
-                    (input)="onPartNumberChange()">
+                <input type="text" class="form-control" formControlName="partNumber" placeholder="Ej. ABC-1234"
+                    maxlength="8" (input)="onPartNumberChange()">
                 <button type="button" class="btn" [class.btn-primary]="scannerEnabled && scanTarget === 'partNumber'"
                     [class.btn-outline-secondary]="!(scannerEnabled && scanTarget === 'partNumber')"
                     (click)="openCameraFor('partNumber')">
@@ -192,28 +203,17 @@
                 <small class="text-primary fw-semibold">{{ familyForInput }}</small>
             </div>
             }
-        </div>  
 
-        <!-- Contador -->
-        <div class="d-flex justify-content-end mt-1">
-            <small
-                [class.text-danger]="(inputForm.get('partNumber')?.value?.length ?? 0) > 0 && (inputForm.get('partNumber')?.value?.length ?? 0) < 8"
-                [class.text-success]="inputForm.get('partNumber')?.value?.length === 8"
-                [class.text-muted]="!inputForm.get('partNumber')?.value?.length">
-                {{ inputForm.get('partNumber')?.value?.length ?? 0 }}/8
-            </small>
+            <!-- Contador -->
+            <div class="d-flex justify-content-end mt-1">
+                <small
+                    [class.text-danger]="(inputForm.get('partNumber')?.value?.length ?? 0) > 0 && (inputForm.get('partNumber')?.value?.length ?? 0) < 8"
+                    [class.text-success]="inputForm.get('partNumber')?.value?.length === 8"
+                    [class.text-muted]="!inputForm.get('partNumber')?.value?.length">
+                    {{ inputForm.get('partNumber')?.value?.length ?? 0 }}/8
+                </small>
+            </div>
         </div>
-
-        <!-- Escáner -->
-        @if (scannerEnabled) {
-        <div class="scanner-wrapper rounded overflow-hidden mb-3">
-            <zxing-scanner [enable]="scannerEnabled" [formats]="formats" (scanSuccess)="onCodeScanned($event)">
-            </zxing-scanner>
-        </div>
-        <p class="text-muted small text-center">
-            Escaneando {{ scanTarget === 'magazine' ? 'magazine' : 'número de parte' }}
-        </p>
-        }
 
         <!-- Cantidad -->
         <div class="mb-4">

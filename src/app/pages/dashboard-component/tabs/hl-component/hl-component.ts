@@ -1,27 +1,27 @@
 import { Component, inject, OnInit, ChangeDetectorRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators, FormsModule } from '@angular/forms';
 import { AsyncPipe, DatePipe } from '@angular/common';
-import { BomService } from '../../../../core/services/bom.service';
-import { SmtService } from '../../../../core/services/smt.service';
-import { Bom, BomItem, BomStockItem } from '../../../../core/models/bom.model';
-import { SmtRoll } from '../../../../core/models/smt.model';
+import { HilightService } from '../../../../core/services/hilight.service';
+import { HLService } from '../../../../core/services/hl.service';
 import { Observable } from 'rxjs';
 import { AuthService } from '../../../../core/services/auth.service';
 import { QueryDocumentSnapshot } from '@angular/fire/firestore';
 import { ExportService } from '../../../../core/services/export.service';
+import { HL, HLItem, HLStockItem } from '../../../../core/models/hl.model';
+import { HilightRoll } from '../../../../core/models/hilight.model';
 
 type View = 'list' | 'detail' | 'create' | 'edit' | 'output' | 'history' | 'select-output';
 
 @Component({
-  selector: 'app-bom-component',
+  selector: 'app-hl-component',
   standalone: true,
   imports: [ReactiveFormsModule, FormsModule, AsyncPipe, DatePipe],
-  templateUrl: './bom-component.html',
-  styleUrl: './bom-component.css'
+  templateUrl: './hl-component.html',
+  styleUrl: './hl-component.css'
 })
-export class BomComponent implements OnInit {
-  private bomService = inject(BomService);
-  private smtService = inject(SmtService);
+export class HlComponent implements OnInit {
+  private hlService = inject(HLService);
+  private hilightService = inject(HilightService);
   private authService = inject(AuthService);
   private exportService = inject(ExportService);
   private fb = inject(FormBuilder);
@@ -29,20 +29,20 @@ export class BomComponent implements OnInit {
 
   isAdmin = false;
 
-  boms: Bom[] = [];
-  allRolls: SmtRoll[] = [];
-  filteredRolls: SmtRoll[] = [];
-  selectedBom: Bom | null = null;
-  bomItems: BomItem[] = [];
-  stockItems: BomStockItem[] = [];
+  hls: HL[] = [];
+  allRolls: HilightRoll[] = [];
+  filteredRolls: HilightRoll[] = [];
+  selectedHl: HL | null = null;
+  hlItems: HLItem[] = [];
+  stockItems: HLStockItem[] = [];
   movements$?: Observable<any[]>;
 
-  lastBomDoc: QueryDocumentSnapshot | null = null;
-  hasMoreBoms = true;
-  loadingMoreBoms = false;
-  isSearchingBoms = false;
-  searchBomName = '';
-  readonly BOM_PAGE_SIZE = 10;
+  lastHlDoc: QueryDocumentSnapshot | null = null;
+  hasMoreHls = true;
+  loadingMoreHls = false;
+  isSearchingHls = false;
+  searchHlName = '';
+  readonly HL_PAGE_SIZE = 10;
 
   lastPartDoc: QueryDocumentSnapshot | null = null;
   hasMoreParts = true;
@@ -51,9 +51,9 @@ export class BomComponent implements OnInit {
   searchPartExists = true;
   readonly PART_PAGE_SIZE = 5;
 
-  allLoadedBoms: Bom[] = [];
-  bomPageSize = 10;
-  bomPageSizeOptions = [10, 20, 50, 100, 0];
+  allLoadedHls: HL[] = [];
+  hlPageSize = 10;
+  hlPageSizeOptions = [10, 20, 50, 100, 0];
 
   view: View = 'list';
   loading = false;
@@ -67,26 +67,26 @@ export class BomComponent implements OnInit {
 
   // Para salida — selección de rollos por ubicación
   outputStep: 'quantity' | 'locations' | 'confirm' = 'quantity';
-  outputQuantity = 1;
+  outputLength = 1;
   currentStockIndex = 0; // índice del item que está seleccionando ubicación
-  selectedRolls: { partNumber: string; rollId: string; quantity: number }[] = [];
-  pendingItems: BomStockItem[] = []; // items que necesitan selección de ubicación
+  selectedRolls: { partNumber: string; rollId: string; length: number }[] = [];
+  pendingItems: HLStockItem[] = []; // items que necesitan selección de ubicación
 
   // Salida individual
   showSingleOutputModal = false;
-  singleOutputItem: BomStockItem | null = null;
+  singleOutputItem: HLStockItem | null = null;
   singleOutputForm = this.fb.group({
-    quantity: [null, [Validators.required, Validators.min(1)]]
+    length: [null, [Validators.required, Validators.min(1)]]
   });
   singleOutputRollId = '';
 
-  bomForm = this.fb.group({
+  hlForm = this.fb.group({
     name: ['', Validators.required],
     description: ['']
   });
 
   outputForm = this.fb.group({
-    quantity: [1, [Validators.required, Validators.min(1)]]
+    length: [1, [Validators.required, Validators.min(1)]]
   });
 
   async ngOnInit() {
@@ -96,27 +96,27 @@ export class BomComponent implements OnInit {
       this.cdr.detectChanges();
     });
 
-    this.bomService.getBoms().subscribe(boms => {
+    this.hlService.getHls().subscribe(hls => {
       // Solo para mantener referencia actualizada al editar/eliminar
     });
-    await this.loadFirstBoms();
+    await this.loadFirstHls();
   }
 
-  async loadFirstBoms() {
+  async loadFirstHls() {
     this.loading = true;
     try {
-      if (this.bomPageSize === 0) {
-        const all = await this.bomService.getAllBoms();
-        this.allLoadedBoms = all;
-        this.boms = all;
-        this.lastBomDoc = null;
-        this.hasMoreBoms = false;
+      if (this.hlPageSize === 0) {
+        const all = await this.hlService.getAllHls();
+        this.allLoadedHls = all;
+        this.hls = all;
+        this.lastHlDoc = null;
+        this.hasMoreHls = false;
       } else {
-        const result = await this.bomService.getBomsPaginated(this.bomPageSize);
-        this.allLoadedBoms = result.boms;
-        this.boms = result.boms;
-        this.lastBomDoc = result.lastDoc;
-        this.hasMoreBoms = result.boms.length === this.bomPageSize;
+        const result = await this.hlService.getHlsPaginated(this.hlPageSize);
+        this.allLoadedHls = result.hls;
+        this.hls = result.hls;
+        this.lastHlDoc = result.lastDoc;
+        this.hasMoreHls = result.hls.length === this.hlPageSize;
       }
     } catch (e: any) {
       this.error = e.message;
@@ -126,60 +126,60 @@ export class BomComponent implements OnInit {
     }
   }
 
-  async loadMoreBoms() {
-    if (!this.lastBomDoc || this.loadingMoreBoms) return;
-    this.loadingMoreBoms = true;
+  async loadMoreHls() {
+    if (!this.lastHlDoc || this.loadingMoreHls) return;
+    this.loadingMoreHls = true;
     try {
-      const result = await this.bomService.getBomsPaginated(this.bomPageSize, this.lastBomDoc);
-      this.allLoadedBoms = [...this.allLoadedBoms, ...result.boms];
-      this.boms = this.applyBomFilter(this.allLoadedBoms);
-      this.lastBomDoc = result.lastDoc;
-      this.hasMoreBoms = result.boms.length === this.bomPageSize;
+      const result = await this.hlService.getHlsPaginated(this.hlPageSize, this.lastHlDoc);
+      this.allLoadedHls = [...this.allLoadedHls, ...result.hls];
+      this.hls = this.applyHlFilter(this.allLoadedHls);
+      this.lastHlDoc = result.lastDoc;
+      this.hasMoreHls = result.hls.length === this.hlPageSize;
     } catch (e: any) {
       this.error = e.message;
     } finally {
-      this.loadingMoreBoms = false;
+      this.loadingMoreHls = false;
       this.cdr.detectChanges();
     }
   }
 
-  async onBomPageSizeChange(size: number) {
-    this.bomPageSize = size;
-    this.searchBomName = '';
-    this.isSearchingBoms = false;
-    await this.loadFirstBoms();
+  async onHlPageSizeChange(size: number) {
+    this.hlPageSize = size;
+    this.searchHlName = '';
+    this.isSearchingHls = false;
+    await this.loadFirstHls();
   }
 
-  applyBomFilter(boms: Bom[]): Bom[] {
-    if (!this.searchBomName.trim()) return boms;
-    const s = this.searchBomName.trim().toLowerCase();
-    return boms.filter(b =>
-      b.name.toLowerCase().includes(s) ||
-      (b.description?.toLowerCase().includes(s) ?? false)
+  applyHlFilter(hls: HL[]): HL[] {
+    if (!this.searchHlName.trim()) return hls;
+    const s = this.searchHlName.trim().toLowerCase();
+    return hls.filter(h =>
+      h.name.toLowerCase().includes(s) ||
+      (h.description?.toLowerCase().includes(s) ?? false)
     );
   }
 
-  onSearchBoms() {
+  onSearchHls() {
     if (this.searchMode === 'partNumber') {
-      this.onSearchBomsByPartNumber();
+      this.onSearchHlsByPartNumber();
       return;
     }
-    this.isSearchingBoms = !!this.searchBomName.trim();
-    this.boms = this.applyBomFilter(this.allLoadedBoms);
+    this.isSearchingHls = !!this.searchHlName.trim();
+    this.hls = this.applyHlFilter(this.allLoadedHls);
     this.cdr.detectChanges();
   }
 
-  async onSearchBomsByPartNumber() {
-    if (!this.searchBomName.trim()) {
-      this.isSearchingBoms = false;
-      await this.loadFirstBoms();
+  async onSearchHlsByPartNumber() {
+    if (!this.searchHlName.trim()) {
+      this.isSearchingHls = false;
+      await this.loadFirstHls();
       return;
     }
-    this.isSearchingBoms = true;
+    this.isSearchingHls = true;
     this.loading = true;
     try {
-      this.boms = await this.bomService.getBomsByPartNumber(this.searchBomName.trim());
-      this.hasMoreBoms = false;
+      this.hls = await this.hlService.getHlsByPartNumber(this.searchHlName.trim());
+      this.hasMoreHls = false;
     } catch (e: any) {
       this.error = e.message;
     } finally {
@@ -188,10 +188,10 @@ export class BomComponent implements OnInit {
     }
   }
 
-  clearBomSearch() {
-    this.searchBomName = '';
-    this.isSearchingBoms = false;
-    this.boms = this.allLoadedBoms;
+  clearHlSearch() {
+    this.searchHlName = '';
+    this.isSearchingHls = false;
+    this.hls = this.allLoadedHls;
     this.cdr.detectChanges();
   }
 
@@ -199,7 +199,7 @@ export class BomComponent implements OnInit {
   async loadFirstParts() {
     this.loadingMoreParts = true;
     try {
-      const result = await this.bomService.getPartNumbersPaginated(this.PART_PAGE_SIZE);
+      const result = await this.hlService.getPartNumbersPaginated(this.PART_PAGE_SIZE);
       this.filteredRolls = this.filterUniquePartNumbers(result.rolls);
       this.lastPartDoc = result.lastDoc;
       this.hasMoreParts = result.rolls.length === this.PART_PAGE_SIZE;
@@ -215,7 +215,7 @@ export class BomComponent implements OnInit {
     if (!this.lastPartDoc || this.loadingMoreParts) return;
     this.loadingMoreParts = true;
     try {
-      const result = await this.bomService.getPartNumbersPaginated(this.PART_PAGE_SIZE, this.lastPartDoc);
+      const result = await this.hlService.getPartNumbersPaginated(this.PART_PAGE_SIZE, this.lastPartDoc);
       const newUnique = this.filterUniquePartNumbers(result.rolls);
       this.filteredRolls = [...this.filteredRolls, ...newUnique];
       this.lastPartDoc = result.lastDoc;
@@ -242,10 +242,10 @@ export class BomComponent implements OnInit {
     this.loadingMoreParts = true;
 
     try {
-      const rolls = await this.bomService.searchPartNumbers(this.searchPart.trim());
+      const rolls = await this.hlService.searchPartNumbers(this.searchPart.trim());
       this.filteredRolls = this.filterUniquePartNumbers(rolls);
 
-      // Verificar si el número exacto existe en SMT
+      // Verificar si el número exacto existe en Hilight
       this.searchPartExists = this.filteredRolls.some(
         r => r.partNumber.toLowerCase() === this.searchPart.trim().toLowerCase()
       );
@@ -266,7 +266,7 @@ export class BomComponent implements OnInit {
     await this.loadFirstParts();
   }
 
-  filterUniquePartNumbers(rolls: SmtRoll[]): SmtRoll[] {
+  filterUniquePartNumbers(rolls: HilightRoll[]): HilightRoll[] {
     const seen = new Set(this.filteredRolls.map(r => r.partNumber));
     return rolls.filter(r => {
       if (seen.has(r.partNumber)) return false;
@@ -277,8 +277,8 @@ export class BomComponent implements OnInit {
 
   // ── Actualizar openCreate y openEdit ──────────────────
   openCreate() {
-    this.bomItems = [];
-    this.bomForm.reset();
+    this.hlItems = [];
+    this.hlForm.reset();
     this.searchPart = '';
     this.filteredRolls = [];
     this.lastPartDoc = null;
@@ -288,10 +288,10 @@ export class BomComponent implements OnInit {
     this.view = 'create';
   }
 
-  openEdit(bom: Bom) {
-    this.selectedBom = bom;
-    this.bomItems = [...bom.items];
-    this.bomForm.patchValue({ name: bom.name, description: bom.description });
+  openEdit(hl: HL) {
+    this.selectedHl = hl;
+    this.hlItems = [...hl.items];
+    this.hlForm.patchValue({ name: hl.name, description: hl.description });
     this.searchPart = '';
     this.filteredRolls = [];
     this.lastPartDoc = null;
@@ -305,9 +305,9 @@ export class BomComponent implements OnInit {
   goBack() {
     this.view = 'list';
     this.error = '';
-    this.bomItems = [];
+    this.hlItems = [];
     this.stockItems = [];
-    this.selectedBom = null;
+    this.selectedHl = null;
     this.outputStep = 'quantity';
     this.selectedRolls = [];
     this.pendingItems = [];
@@ -315,24 +315,24 @@ export class BomComponent implements OnInit {
     this.filteredRolls = [];
     this.searchPart = '';
 
-    if (!this.isSearchingBoms) {
-      this.loadFirstBoms();
+    if (!this.isSearchingHls) {
+      this.loadFirstHls();
     } else {
-      this.boms = this.applyBomFilter(this.allLoadedBoms);
+      this.hls = this.applyHlFilter(this.allLoadedHls);
     }
   }
 
   async loadAllRolls() {
     try {
-      let allRolls: SmtRoll[] = [];
+      let allRolls: HilightRoll[] = [];
       let lastDoc = null;
       let hasMore = true;
 
       // Cargar todos los rollos en lotes de 10 para construir la lista de números de parte
       while (hasMore) {
         const result: any = lastDoc
-          ? await this.smtService.getRollsNextPage(10, lastDoc)
-          : await this.smtService.getRollsPaginated(10);
+          ? await this.hilightService.getRollsNextPage(10, lastDoc)
+          : await this.hilightService.getRollsPaginated(10);
 
         allRolls = [...allRolls, ...result.rolls];
         lastDoc = result.lastDoc;
@@ -348,21 +348,21 @@ export class BomComponent implements OnInit {
   }
 
   // ── Navegación ───────────────────────────────────────
-  openDetail(bom: Bom) {
-    this.selectedBom = bom;
+  openDetail(hl: HL) {
+    this.selectedHl = hl;
     this.view = 'detail';
-    this.loadStockForBom(bom);
+    this.loadStockForHl(hl);
   }
 
-  openHistory(bom: Bom) {
-    this.selectedBom = bom;
-    this.movements$ = this.bomService.getMovements(bom.id!);
+  openHistory(hl: HL) {
+    this.selectedHl = hl;
+    this.movements$ = this.hlService.getMovements(hl.id!);
     this.view = 'history';
   }
 
-  openOutput(bom: Bom) {
-    this.selectedBom = bom;
-    this.outputForm.reset({ quantity: 1 });
+  openOutput(hl: HL) {
+    this.selectedHl = hl;
+    this.outputForm.reset({ length: 1 });
     this.outputStep = 'quantity';
     this.selectedRolls = [];
     this.pendingItems = [];
@@ -376,7 +376,7 @@ export class BomComponent implements OnInit {
   }
 
   // ── Números de parte únicos ──────────────────────────
-  getUniquePartNumbers(): SmtRoll[] {
+  getUniquePartNumbers(): HilightRoll[] {
     const seen = new Set<string>();
     return this.allRolls.filter(r => {
       if (seen.has(r.partNumber)) return false;
@@ -396,15 +396,15 @@ export class BomComponent implements OnInit {
     );
   }
 
-  // ── Items del BOM ────────────────────────────────────
-  addItem(partNumber: string, existsInSmt = true) {
-    const exists = this.bomItems.find(i => i.partNumber === partNumber);
+  // ── Items del HL ────────────────────────────────────
+  addItem(partNumber: string, existsInHilight = true) {
+    const exists = this.hlItems.find(i => i.partNumber === partNumber);
     if (exists) {
       this.error = `${partNumber} ya está en la receta`;
       setTimeout(() => this.error = '', 2000);
       return;
     }
-    this.bomItems.push({ partNumber, quantityRequired: 1, existsInSmt });
+    this.hlItems.push({ partNumber, lengthRequired: 1, existsInHilight });
     this.cdr.detectChanges();
   }
 
@@ -437,13 +437,13 @@ export class BomComponent implements OnInit {
         invalidLength++;
         continue;
       }
-      const exists = this.bomItems.find(i => i.partNumber === part);
+      const exists = this.hlItems.find(i => i.partNumber === part);
       if (exists) {
         skipped++;
         continue;
       }
-      const existsInSmt = this.allRolls.some(r => r.partNumber === part);
-      this.bomItems.push({ partNumber: part, quantityRequired: 1, existsInSmt });
+      const existsInHilight = this.allRolls.some(r => r.partNumber === part);
+      this.hlItems.push({ partNumber: part, lengthRequired: 1, existsInHilight });
       added++;
     }
 
@@ -460,17 +460,17 @@ export class BomComponent implements OnInit {
   }
 
   removeItem(partNumber: string) {
-    this.bomItems = this.bomItems.filter(i => i.partNumber !== partNumber);
+    this.hlItems = this.hlItems.filter(i => i.partNumber !== partNumber);
   }
 
-  updateQuantity(partNumber: string, quantity: number) {
-    const item = this.bomItems.find(i => i.partNumber === partNumber);
-    if (item) item.quantityRequired = quantity;
+  updateLength(partNumber: string, length: number) {
+    const item = this.hlItems.find(i => i.partNumber === partNumber);
+    if (item) item.lengthRequired = length;
   }
 
-  // ── CRUD BOM ─────────────────────────────────────────
-  async saveBom() {
-    if (this.bomForm.invalid || this.bomItems.length === 0) {
+  // ── CRUD HL ─────────────────────────────────────────
+  async saveHl() {
+    if (this.hlForm.invalid || this.hlItems.length === 0) {
       this.error = 'Agrega al menos un número de parte a la receta';
       return;
     }
@@ -478,47 +478,47 @@ export class BomComponent implements OnInit {
     this.error = '';
 
     try {
-      const { name, description } = this.bomForm.value;
-      const data = { name: name!, description: description || '', items: this.bomItems };
+      const { name, description } = this.hlForm.value;
+      const data = { name: name!, description: description || '', items: this.hlItems };
 
-      if (this.view === 'edit' && this.selectedBom?.id) {
-        await this.bomService.updateBom(this.selectedBom.id, data);
-        this.success = 'BOM actualizado correctamente';
+      if (this.view === 'edit' && this.selectedHl?.id) {
+        await this.hlService.updateHL(this.selectedHl.id, data);
+        this.success = 'HL actualizado correctamente';
       } else {
-        await this.bomService.addBom(data);
-        this.success = 'BOM creado correctamente';
+        await this.hlService.addHL(data);
+        this.success = 'HL creado correctamente';
       }
 
       this.goBack();
       setTimeout(() => this.success = '', 3000);
     } catch (e: any) {
-      this.error = e.message || 'Error al guardar el BOM';
+      this.error = e.message || 'Error al guardar el HL';
     } finally {
       this.loading = false;
-      await this.loadFirstBoms();
+      await this.loadFirstHls();
       this.cdr.detectChanges();
     }
   }
 
-  async deleteBom(bom: Bom) {
-    if (!confirm(`¿Eliminar BOM "${bom.name}"?`)) return;
+  async deleteHl(hl: HL) {
+    if (!confirm(`¿Eliminar HL "${hl.name}"?`)) return;
     try {
-      await this.bomService.deleteBom(bom.id!);
-      this.success = 'BOM eliminado';
+      await this.hlService.deleteHL(hl.id!);
+      this.success = 'HL eliminado';
       setTimeout(() => this.success = '', 3000);
     } catch (e: any) {
       this.error = e.message;
     } finally {
-      await this.loadFirstBoms();
+      await this.loadFirstHls();
       this.cdr.detectChanges();
     }
   }
 
   // ── Stock del detalle ────────────────────────────────
-  async loadStockForBom(bom: Bom) {
+  async loadStockForHl(hl: HL) {
     this.loading = true;
     try {
-      this.stockItems = await this.bomService.checkStock(bom, 1);
+      this.stockItems = await this.hlService.checkStock(hl, 1);
     } catch (e: any) {
       this.error = e.message;
     } finally {
@@ -528,20 +528,20 @@ export class BomComponent implements OnInit {
   }
 
   // ── Salida ───────────────────────────────────────────
-  async checkStockForOutput() {
-    if (this.outputForm.invalid || !this.selectedBom) return;
+  async checkLengthForOutput() {
+    if (this.outputForm.invalid || !this.selectedHl) return;
     this.loading = true;
     this.error = '';
-    this.outputQuantity = this.outputForm.value.quantity!;
+    this.outputLength = this.outputForm.value.length!;
 
     try {
-      const stockItems = await this.bomService.checkStock(this.selectedBom, this.outputQuantity);
+      const stockItems = await this.hlService.checkStock(this.selectedHl, this.outputLength);
 
       // Verificar si hay suficiente stock para todo
-      const insufficient = stockItems.filter(i => !i.hasEnoughStock);
+      const insufficient = stockItems.filter(i => !i.hasEnoughLength);
       if (insufficient.length > 0) {
         this.error = `Stock insuficiente para: ${insufficient.map(i =>
-          `${i.partNumber} (necesita ${i.totalRequired}, hay ${i.totalStock})`
+          `${i.partNumber} (necesita ${i.totalRequired}, hay ${i.totalLength})`
         ).join(', ')}`;
         return;
       }
@@ -555,7 +555,7 @@ export class BomComponent implements OnInit {
         this.selectedRolls.push({
           partNumber: item.partNumber,
           rollId: item.rolls[0].id,
-          quantity: item.totalRequired
+          length: item.totalRequired
         });
       }
 
@@ -578,7 +578,7 @@ export class BomComponent implements OnInit {
     this.selectedRolls.push({
       partNumber: item.partNumber,
       rollId,
-      quantity: item.totalRequired
+      length: item.totalRequired
     });
 
     if (this.currentStockIndex < this.pendingItems.length - 1) {
@@ -590,17 +590,17 @@ export class BomComponent implements OnInit {
   }
 
   async confirmOutput() {
-    if (!this.selectedBom) return;
+    if (!this.selectedHl) return;
     this.loading = true;
     this.error = '';
 
     try {
-      await this.bomService.registerOutput(
-        this.selectedBom,
-        this.outputQuantity,
+      await this.hlService.registerOutput(
+        this.selectedHl,
+        this.outputLength,
         this.selectedRolls
       );
-      this.success = `Salida registrada — ${this.selectedBom.name} x${this.outputQuantity}`;
+      this.success = `Salida registrada — ${this.selectedHl.name} x${this.outputLength}`;
       this.goBack();
       setTimeout(() => this.success = '', 4000);
     } catch (e: any) {
@@ -611,19 +611,19 @@ export class BomComponent implements OnInit {
     }
   }
 
-  // Getter para ordenar items — primero los que existen en SMT
-  get sortedStockItems(): BomStockItem[] {
+  // Getter para ordenar items — primero los que existen en Hilight
+  get sortedStockItems(): HLStockItem[] {
     return [...this.stockItems].sort((a, b) => {
-      if (a.totalStock > 0 && b.totalStock === 0) return -1;
-      if (a.totalStock === 0 && b.totalStock > 0) return 1;
+      if (a.totalLength > 0 && b.totalLength === 0) return -1;
+      if (a.totalLength === 0 && b.totalLength > 0) return 1;
       return 0;
     });
   }
 
-  openSingleOutput(item: BomStockItem) {
+  openSingleOutput(item: HLStockItem) {
     this.singleOutputItem = item;
     this.singleOutputRollId = item.rolls.length === 1 ? item.rolls[0].id : '';
-    this.singleOutputForm.reset({ quantity: null });
+    this.singleOutputForm.reset({ length: null });
     this.showSingleOutputModal = true;
   }
 
@@ -633,8 +633,8 @@ export class BomComponent implements OnInit {
 
   async confirmSingleOutput() {
     if (!this.singleOutputItem || !this.singleOutputRollId) return;
-    const { quantity } = this.singleOutputForm.value;
-    if (!quantity) return;
+    const { length } = this.singleOutputForm.value;
+    if (!length) return;
 
     this.loading = true;
     this.error = '';
@@ -643,24 +643,24 @@ export class BomComponent implements OnInit {
       const roll = this.singleOutputItem.rolls.find(r => r.id === this.singleOutputRollId);
       if (!roll) throw new Error('Rollo no encontrado');
 
-      if (quantity > roll.stock) {
-        this.error = `Stock insuficiente. Disponible: ${roll.stock} pzs`;
+      if (length > roll.length) {
+        this.error = `Stock insuficiente. Disponible: ${roll.length} pzs`;
         return;
       }
 
-      await this.bomService.registerOutput(
-        this.selectedBom!,
+      await this.hlService.registerOutput(
+        this.selectedHl!,
         1,
         [{
           partNumber: this.singleOutputItem.partNumber,
           rollId: this.singleOutputRollId,
-          quantity
+          length: length
         }]
       );
 
-      this.success = `Salida registrada — ${this.singleOutputItem.partNumber} (-${quantity} pzs)`;
+      this.success = `Salida registrada — ${this.singleOutputItem.partNumber} (-${length} pzs)`;
       this.showSingleOutputModal = false;
-      await this.loadStockForBom(this.selectedBom!);
+      await this.loadStockForHl(this.selectedHl!);
       setTimeout(() => this.success = '', 3000);
     } catch (e: any) {
       this.error = e.message || 'Error al registrar salida';
@@ -672,47 +672,47 @@ export class BomComponent implements OnInit {
 
   get selectedRollStock(): number {
     if (!this.singleOutputItem || !this.singleOutputRollId) return 0;
-    return this.singleOutputItem.rolls.find(r => r.id === this.singleOutputRollId)?.stock ?? 0;
+    return this.singleOutputItem.rolls.find(r => r.id === this.singleOutputRollId)?.length ?? 0;
   }
 
   // ── Exportación ───────────────────────────────────────
-  async exportBoms() {
-    const allBoms = await this.bomService.getAllBoms();
+  async exportHls() {
+    const allHls = await this.hlService.getAllHls();
 
-    // Hoja 1: Lista de BOMs
-    const bomsData = allBoms.map(b => ({
-      'Nombre': b.name,
-      'Descripción': b.description || '—',
-      'Componentes': b.items.length,
+    // Hoja 1: Lista de HLS
+    const hlsData = allHls.map(h => ({
+      'Nombre': h.name,
+      'Descripción': h.description || '—',
+      'Componentes': h.items.length,
     }));
 
-    // Hoja 2: Detalle de componentes por BOM
-    const itemsData = allBoms.flatMap(b =>
-      b.items.map(i => ({
-        'BOM': b.name,
+    // Hoja 2: Detalle de componentes por HL
+    const itemsData = allHls.flatMap(h =>
+      h.items.map(i => ({
+        'HL': h.name,
         'Número de Parte': i.partNumber,
-        'Cantidad': i.quantityRequired,
-        'Stock': i.existsInSmt ? 'Sí' : 'No',
+        'Cantidad': i.lengthRequired,
+        'Stock': i.existsInHilight ? 'Sí' : 'No',
       }))
     );
 
     this.exportService.exportMultiSheet([
-      { name: 'BOMs', data: bomsData },
-      { name: 'Componentes', data: itemsData },
-    ], 'BOMs');
+      { name: 'HLS', data: hlsData },
+      { name: 'Componentes', data: itemsData }, 
+    ], 'HLS_Exportados');
   }
 
-  async exportBomMovements() {
-    const allMovements = await this.bomService.getAllMovementsOnce();
+  async exportHlMovements() {
+    const allMovements = await this.hlService.getAllMovementsOnce();
 
     const data = allMovements.map(m => ({
-      'BOM': m.bomName,
-      'Tipo': m.type === 'entrada' ? 'Entrada' : 'Salida',
+      'HL': m.hlName,
+      'Tipo': m.type === 'input' ? 'Entrada' : 'Salida',
       'Cantidad': m.quantity,
       'Usuario': m.userName,
       'Fecha': m.date?.toDate ? m.date.toDate().toLocaleString('es-MX') : '—',
     }));
 
-    this.exportService.exportToExcel(data, 'BOM_Movimientos', 'Movimientos');
+    this.exportService.exportToExcel(data, 'HL_Movimientos', 'Movimientos');
   }
 }
