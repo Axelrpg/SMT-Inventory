@@ -162,14 +162,24 @@
 
     <form [formGroup]="inputForm">
 
+        <!-- Escáner -->
         @if (scannerEnabled) {
         <div class="scanner-wrapper rounded overflow-hidden mb-3">
-            <zxing-scanner [enable]="scannerEnabled" [formats]="searchFormats" (scanSuccess)="onCodeScanned($event)">
+            <zxing-scanner [enable]="scannerEnabled" [formats]="searchFormats" [device]="currentCamera"
+                (camerasFound)="onCamerasFound($event)" (scanSuccess)="onCodeScanned($event)">
             </zxing-scanner>
         </div>
-        <p class="text-muted small text-center">
-            Escaneando {{ scanTarget === 'partNumber' ? 'número de parte' : 'ubicación' }}
-        </p>
+
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <p class="text-muted small text-center">
+                Escaneando {{ scanTarget === 'partNumber' ? 'número de parte' : 'ubicación' }}
+            </p>
+            @if (hasMultipleCameras) {
+            <button class="btn btn-outline-secondary btn-sm" (click)="switchCamera()">
+                <i class="bi bi-arrow-repeat me-1"></i>Cambiar cámara
+            </button>
+            }
+        </div>
         }
 
         <div>
@@ -256,10 +266,23 @@
             </div>
         </div>
 
+        <!-- Escáner -->
         @if (scannerEnabled) {
         <div class="scanner-wrapper rounded overflow-hidden mb-3">
-            <zxing-scanner [enable]="scannerEnabled" [formats]="searchFormats" (scanSuccess)="onCodeScanned($event)">
+            <zxing-scanner [enable]="scannerEnabled" [formats]="searchFormats" [device]="currentCamera"
+                (camerasFound)="onCamerasFound($event)" (scanSuccess)="onCodeScanned($event)">
             </zxing-scanner>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <p class="text-muted small mb-0">
+                Apunta al código de barras o QR
+            </p>
+            @if (hasMultipleCameras) {
+            <button class="btn btn-outline-secondary btn-sm" (click)="switchCamera()">
+                <i class="bi bi-arrow-repeat me-1"></i>Cambiar cámara
+            </button>
+            }
         </div>
         }
 

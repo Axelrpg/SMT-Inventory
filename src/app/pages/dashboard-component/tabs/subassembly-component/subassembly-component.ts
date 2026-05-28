@@ -69,6 +69,11 @@ export class SubassemblyComponent implements OnInit {
     BarcodeFormat.CODE_39
   ];
 
+  availableCameras: MediaDeviceInfo[] = [];
+  currentCamera: MediaDeviceInfo | undefined = undefined;
+  hasMultipleCameras = false;
+  private currentCameraIndex = 0;
+
   // ── Modal edición ─────────────────────────────────────
   showEditModal = false;
   editingItem: Subassembly | null = null;
@@ -209,6 +214,48 @@ export class SubassemblyComponent implements OnInit {
     this.searchScannerEnabled = false;
     this.searchText = code;
     this.onSearch();
+  }
+
+  onCamerasFound(cameras: MediaDeviceInfo[]) {
+    if (!cameras || cameras.length === 0) {
+      this.availableCameras = [];
+      this.currentCamera = undefined;
+      this.hasMultipleCameras = false;
+      return;
+    }
+
+    this.availableCameras = cameras;
+    this.hasMultipleCameras = cameras.length > 1;
+
+    const backCameraIndex = cameras.findIndex(c =>
+      c.label.toLowerCase().includes('back') ||
+      c.label.toLowerCase().includes('rear') ||
+      c.label.toLowerCase().includes('trasera') ||
+      c.label.toLowerCase().includes('posterior') ||
+      c.label.toLowerCase().includes('environment')
+    )
+
+    if (backCameraIndex !== -1) {
+      this.currentCameraIndex = backCameraIndex;
+    } else {
+      this.currentCameraIndex = cameras.length > 1 ? 1 : 0; // Si hay más de una cámara, elegir la segunda (usualmente frontal), sino la única disponible
+    }
+
+    this.currentCamera = cameras[this.currentCameraIndex];
+    this.cdr.detectChanges();
+  }
+
+  switchCamera() {
+    if (!this.hasMultipleCameras || this.availableCameras.length === 0) return;
+
+    this.currentCameraIndex = (this.currentCameraIndex + 1) % this.availableCameras.length;
+    this.currentCamera = undefined; // Forzar reinicio del stream
+    this.cdr.detectChanges();
+
+    setTimeout(() => {
+      this.currentCamera = this.availableCameras[this.currentCameraIndex];
+      this.cdr.detectChanges();
+    }, 200);
   }
 
   // ── Navegación ────────────────────────────────────────

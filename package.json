@@ -4,11 +4,12 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
-    "build": "ng build",
+    "build": "ng build --configuration production",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "deploy": "ng build --configuration production && firebase deploy",
     "deploy:functions": "firebase deploy --only functions",
+    "deploy:hosting": "firebase deploy --only hosting",
     "emulators": "firebase emulators:start --import=./saved-data --export-on-exit=./saved-data",
     "emulators:clean": "firebase emulators:start",
     "emulators:export": "firebase emulators:export --export-path=./saved-data"
