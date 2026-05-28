@@ -64,7 +64,7 @@
         <!-- Escáner de búsqueda -->
         @if (searchScannerEnabled) {
         <div class="scanner-wrapper rounded overflow-hidden mb-3">
-            <zxing-scanner [enable]="scannerEnabled" [formats]="formats" [device]="currentCamera"
+            <zxing-scanner [enable]="searchScannerEnabled" [formats]="formats" [device]="currentCamera"
                 (camerasFound)="onCamerasFound($event)" (scanSuccess)="onCodeScanned($event)">
             </zxing-scanner>
         </div>
