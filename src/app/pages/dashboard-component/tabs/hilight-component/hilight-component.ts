@@ -10,6 +10,7 @@ import { ExportService } from '../../../../core/services/export.service';
 import { HilightRoll, HilightMovement } from '../../../../core/models/hilight.model';
 import { QueryDocumentSnapshot } from '@angular/fire/firestore';
 import { Observable } from 'rxjs';
+import { QrScannerComponent } from '../../../../shared/qr-scanner/qr-scanner';
 
 type View = 'list' | 'input' | 'output' | 'history';
 type OutputStep = 'form' | 'locations' | 'confirm';
@@ -17,7 +18,7 @@ type OutputStep = 'form' | 'locations' | 'confirm';
 @Component({
   selector: 'app-hilight-component',
   standalone: true,
-  imports: [ReactiveFormsModule, FormsModule, ZXingScannerModule, AsyncPipe, DatePipe],
+  imports: [ReactiveFormsModule, FormsModule, ZXingScannerModule, AsyncPipe, DatePipe, QrScannerComponent],
   templateUrl: './hilight-component.html',
   styleUrl: './hilight-component.css'
 })
@@ -54,17 +55,6 @@ export class HilightComponent implements OnInit {
   // ── Escáner ───────────────────────────────────────────
   scannerEnabled = false;
   scanTarget: 'partNumber' | 'location' = 'partNumber';
-  searchFormats = [
-    BarcodeFormat.QR_CODE,
-    BarcodeFormat.CODE_128,
-    BarcodeFormat.EAN_13,
-    BarcodeFormat.CODE_39
-  ];
-
-  availableCameras: MediaDeviceInfo[] = [];
-  currentCamera: MediaDeviceInfo | undefined = undefined;
-  hasMultipleCameras = false;
-  private currentCameraIndex = 0;
 
   // ── Salida ────────────────────────────────────────────
   outputStep: OutputStep = 'form';
@@ -185,48 +175,6 @@ export class HilightComponent implements OnInit {
     this.searchScannerEnabled = false;
     this.searchPartNumber = code.substring(0, 18);
     this.onSearch();
-  }
-
-  onCamerasFound(cameras: MediaDeviceInfo[]) {
-    if (!cameras || cameras.length === 0) {
-      this.availableCameras = [];
-      this.currentCamera = undefined;
-      this.hasMultipleCameras = false;
-      return;
-    }
-
-    this.availableCameras = cameras;
-    this.hasMultipleCameras = cameras.length > 1;
-
-    const backCameraIndex = cameras.findIndex(c =>
-      c.label.toLowerCase().includes('back') ||
-      c.label.toLowerCase().includes('rear') ||
-      c.label.toLowerCase().includes('trasera') ||
-      c.label.toLowerCase().includes('posterior') ||
-      c.label.toLowerCase().includes('environment')
-    )
-
-    if (backCameraIndex !== -1) {
-      this.currentCameraIndex = backCameraIndex;
-    } else {
-      this.currentCameraIndex = cameras.length > 1 ? 1 : 0; // Si hay más de una cámara, elegir la segunda (usualmente frontal), sino la única disponible
-    }
-
-    this.currentCamera = cameras[this.currentCameraIndex];
-    this.cdr.detectChanges();
-  }
-
-  switchCamera() {
-    if (!this.hasMultipleCameras || this.availableCameras.length === 0) return;
-
-    this.currentCameraIndex = (this.currentCameraIndex + 1) % this.availableCameras.length;
-    this.currentCamera = undefined; // Forzar reinicio del stream
-    this.cdr.detectChanges();
-
-    setTimeout(() => {
-      this.currentCamera = this.availableCameras[this.currentCameraIndex];
-      this.cdr.detectChanges();
-    }, 200);
   }
 
   // ── Navegación ────────────────────────────────────────

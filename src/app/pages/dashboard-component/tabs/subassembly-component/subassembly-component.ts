@@ -11,6 +11,7 @@ import { Subassembly, SubassemblyMovement } from '../../../../core/models/subass
 import { QueryDocumentSnapshot } from '@angular/fire/firestore';
 import { Observable } from 'rxjs';
 import { FamilyService } from '../../../../core/services/family.service';
+import { QrScannerComponent } from '../../../../shared/qr-scanner/qr-scanner';
 
 type View = 'list' | 'input' | 'output' | 'history';
 type OutputStep = 'form' | 'confirm';
@@ -18,7 +19,7 @@ type OutputStep = 'form' | 'confirm';
 @Component({
   selector: 'app-subassembly-component',
   standalone: true,
-  imports: [ReactiveFormsModule, FormsModule, ZXingScannerModule, AsyncPipe, DatePipe],
+  imports: [ReactiveFormsModule, FormsModule, ZXingScannerModule, AsyncPipe, DatePipe, QrScannerComponent],
   templateUrl: './subassembly-component.html',
   styleUrl: './subassembly-component.css'
 })
@@ -49,6 +50,8 @@ export class SubassemblyComponent implements OnInit {
   searchText = '';
   isSearching = false;
   searchScannerEnabled = false;
+  partNumberTotal: number | null = null;
+  searchingTotal = false;
 
   // ── Estado general ────────────────────────────────────
   view: View = 'list';
@@ -62,17 +65,6 @@ export class SubassemblyComponent implements OnInit {
   // ── Escáner ───────────────────────────────────────────
   scannerEnabled = false;
   scanTarget: 'magazine' | 'partNumber' = 'magazine';
-  formats = [
-    BarcodeFormat.QR_CODE,
-    BarcodeFormat.CODE_128,
-    BarcodeFormat.EAN_13,
-    BarcodeFormat.CODE_39
-  ];
-
-  availableCameras: MediaDeviceInfo[] = [];
-  currentCamera: MediaDeviceInfo | undefined = undefined;
-  hasMultipleCameras = false;
-  private currentCameraIndex = 0;
 
   // ── Modal edición ─────────────────────────────────────
   showEditModal = false;
@@ -194,7 +186,33 @@ export class SubassemblyComponent implements OnInit {
   onSearch() {
     this.isSearching = !!this.searchText.trim();
     this.filteredItems = this.applyFilter(this.allLoadedItems);
+    this.onSearchTotal();
     this.cdr.detectChanges();
+  }
+
+  async onSearchTotal() {
+    if (!this.searchText.trim()) {
+      this.partNumberTotal = null;
+      return;
+    }
+
+    const exactMatch = this.allLoadedItems.find(
+      i => i.partNumber.toLowerCase() === this.searchText.trim().toLowerCase()
+    );
+
+    if (exactMatch) {
+      this.searchingTotal = true;
+      try {
+        this.partNumberTotal = await this.subassemblyService.getTotalByPartNumber(exactMatch.partNumber);
+      } catch (error: any) {
+        this.partNumberTotal = null;
+      } finally {
+        this.searchingTotal = false;
+        this.cdr.detectChanges();
+      }
+    } else {
+      this.partNumberTotal = null;
+    }
   }
 
   clearSearch() {
@@ -202,6 +220,7 @@ export class SubassemblyComponent implements OnInit {
     this.isSearching = false;
     this.searchScannerEnabled = false;
     this.filteredItems = this.allLoadedItems;
+    this.partNumberTotal = null;
     this.cdr.detectChanges();
   }
 
@@ -214,48 +233,6 @@ export class SubassemblyComponent implements OnInit {
     this.searchScannerEnabled = false;
     this.searchText = code;
     this.onSearch();
-  }
-
-  onCamerasFound(cameras: MediaDeviceInfo[]) {
-    if (!cameras || cameras.length === 0) {
-      this.availableCameras = [];
-      this.currentCamera = undefined;
-      this.hasMultipleCameras = false;
-      return;
-    }
-
-    this.availableCameras = cameras;
-    this.hasMultipleCameras = cameras.length > 1;
-
-    const backCameraIndex = cameras.findIndex(c =>
-      c.label.toLowerCase().includes('back') ||
-      c.label.toLowerCase().includes('rear') ||
-      c.label.toLowerCase().includes('trasera') ||
-      c.label.toLowerCase().includes('posterior') ||
-      c.label.toLowerCase().includes('environment')
-    )
-
-    if (backCameraIndex !== -1) {
-      this.currentCameraIndex = backCameraIndex;
-    } else {
-      this.currentCameraIndex = cameras.length > 1 ? 1 : 0; // Si hay más de una cámara, elegir la segunda (usualmente frontal), sino la única disponible
-    }
-
-    this.currentCamera = cameras[this.currentCameraIndex];
-    this.cdr.detectChanges();
-  }
-
-  switchCamera() {
-    if (!this.hasMultipleCameras || this.availableCameras.length === 0) return;
-
-    this.currentCameraIndex = (this.currentCameraIndex + 1) % this.availableCameras.length;
-    this.currentCamera = undefined; // Forzar reinicio del stream
-    this.cdr.detectChanges();
-
-    setTimeout(() => {
-      this.currentCamera = this.availableCameras[this.currentCameraIndex];
-      this.cdr.detectChanges();
-    }, 200);
   }
 
   // ── Navegación ────────────────────────────────────────
@@ -347,24 +324,18 @@ export class SubassemblyComponent implements OnInit {
       const existing = await this.subassemblyService.getByMagazine(magazine!);
 
       if (existing) {
-        const partNumberChanged = existing.partNumber !== partNumber!.trim();
-
-        if (partNumberChanged) {
-          // Número de parte diferente — actualizar el número de parte
-          // y registrar entrada con cantidad desde 0
+        const isEmpty = existing.quantity === 0;
+        if (existing.magazine === magazine && isEmpty) {
           await this.subassemblyService.update(existing.id!, {
             partNumber: partNumber!,
-            quantity: 0  // resetear para que registerMovement sume correctamente
+            quantity: 0
           });
-
           await this.subassemblyService.registerMovement(
             existing.id!, existing.magazine, partNumber!, 'entrada', quantity!
           );
         } else {
-          // Mismo número de parte — solo sumar cantidad
-          await this.subassemblyService.registerMovement(
-            existing.id!, existing.magazine, existing.partNumber, 'entrada', quantity!
-          );
+          this.error = `El magazine ${magazine} ya existe. No se pueden tener dos subensambles con el mismo magazine.`;
+          return;
         }
       } else {
         // Magazine nuevo — crear y registrar

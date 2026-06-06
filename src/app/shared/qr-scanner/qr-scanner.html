@@ -1,0 +1,27 @@
+<div class="qr-scanner-container">
+    <zxing-scanner [enable]="enabled" [formats]="formats" [device]="currentCamera" [autofocusEnabled]="true"
+        [tryHarder]="true" (camerasFound)="onCamerasFound($event)" (scanSuccess)="onScanSuccess($event)"
+        (scanError)="onScanError($event)">
+    </zxing-scanner>
+
+    <!-- Overlay con guía visual -->
+    <div class="qr-overlay">
+        <div class="qr-frame">
+            <div class="corner top-left"></div>
+            <div class="corner top-right"></div>
+            <div class="corner bottom-left"></div>
+            <div class="corner bottom-right"></div>
+            <div class="scan-line"></div>
+        </div>
+    </div>
+
+    <!-- Controles -->
+    <div class="qr-controls">
+        <span class="qr-hint">{{ hint }}</span>
+        @if (hasMultipleCameras) {
+        <button class="btn btn-sm btn-light" (click)="switchCamera()">
+            <i class="bi bi-arrow-repeat me-1"></i>Cambiar cámara
+        </button>
+        }
+    </div>
+</div>

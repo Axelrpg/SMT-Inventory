@@ -1,0 +1,101 @@
+.qr-scanner-container {
+    position: relative;
+    width: 100%;
+    max-height: 320px;
+    overflow: hidden;
+    border-radius: 0.5rem;
+    background: #000;
+}
+
+zxing-scanner {
+    width: 100%;
+    display: block;
+}
+
+.qr-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.qr-frame {
+    position: relative;
+    width: 200px;
+    height: 200px;
+}
+
+.corner {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    border-color: #00e676;
+    border-style: solid;
+}
+
+.top-left {
+    top: 0;
+    left: 0;
+    border-width: 3px 0 0 3px;
+}
+
+.top-right {
+    top: 0;
+    right: 0;
+    border-width: 3px 3px 0 0;
+}
+
+.bottom-left {
+    bottom: 0;
+    left: 0;
+    border-width: 0 0 3px 3px;
+}
+
+.bottom-right {
+    bottom: 0;
+    right: 0;
+    border-width: 0 3px 3px 0;
+}
+
+.scan-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #00e676, transparent);
+    animation: scan 2s linear infinite;
+    top: 0;
+}
+
+@keyframes scan {
+    0% {
+        top: 0;
+    }
+
+    50% {
+        top: calc(100% - 2px);
+    }
+
+    100% {
+        top: 0;
+    }
+}
+
+.qr-controls {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 0.5rem;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.qr-hint {
+    color: #fff;
+    font-size: 0.75rem;
+}

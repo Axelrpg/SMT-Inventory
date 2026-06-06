@@ -9,6 +9,7 @@ import { Observable } from 'rxjs';
 import { AuthService } from '../../../../core/services/auth.service';
 import { QueryDocumentSnapshot } from '@angular/fire/firestore';
 import { ExportService } from '../../../../core/services/export.service';
+import { QrScannerComponent } from '../../../../shared/qr-scanner/qr-scanner';
 
 type View = 'list' | 'input' | 'output' | 'history';
 type InputMode = 'manual' | 'camera';
@@ -16,7 +17,7 @@ type InputMode = 'manual' | 'camera';
 @Component({
   selector: 'app-smt-component',
   standalone: true,
-  imports: [ReactiveFormsModule, FormsModule, ZXingScannerModule, AsyncPipe, DatePipe],
+  imports: [ReactiveFormsModule, FormsModule, ZXingScannerModule, AsyncPipe, DatePipe, QrScannerComponent],
   templateUrl: './smt-component.html',
   styleUrl: './smt-component.css'
 })
@@ -43,17 +44,6 @@ export class SmtComponent implements OnInit {
   searchPartNumber = '';
   isSearching = false;
   searchScannerEnabled = false;
-  searchFormats = [
-    BarcodeFormat.QR_CODE,
-    BarcodeFormat.CODE_128,
-    BarcodeFormat.EAN_13,
-    BarcodeFormat.CODE_39
-  ];
-
-  availableCameras: MediaDeviceInfo[] = [];
-  currentCamera: MediaDeviceInfo | undefined = undefined;
-  hasMultipleCameras = false;
-  private currentCameraIndex = 0;
 
   movements$?: Observable<SmtMovement[]>;
   selectedRoll: SmtRoll | null = null;
@@ -202,48 +192,6 @@ export class SmtComponent implements OnInit {
     this.searchPartNumber = '';
     this.isSearching = false;
     await this.loadFirstPage();
-  }
-
-  onCamerasFound(cameras: MediaDeviceInfo[]) {
-    if (!cameras || cameras.length === 0) {
-      this.availableCameras = [];
-      this.currentCamera = undefined;
-      this.hasMultipleCameras = false;
-      return;
-    }
-
-    this.availableCameras = cameras;
-    this.hasMultipleCameras = cameras.length > 1;
-
-    const backCameraIndex = cameras.findIndex(c =>
-      c.label.toLowerCase().includes('back') ||
-      c.label.toLowerCase().includes('rear') ||
-      c.label.toLowerCase().includes('trasera') ||
-      c.label.toLowerCase().includes('posterior') ||
-      c.label.toLowerCase().includes('environment')
-    )
-
-    if (backCameraIndex !== -1) {
-      this.currentCameraIndex = backCameraIndex;
-    } else {
-      this.currentCameraIndex = cameras.length > 1 ? 1 : 0; // Si hay más de una cámara, elegir la segunda (usualmente frontal), sino la única disponible
-    }
-
-    this.currentCamera = cameras[this.currentCameraIndex];
-    this.cdr.detectChanges();
-  }
-
-  switchCamera() {
-    if (!this.hasMultipleCameras || this.availableCameras.length === 0) return;
-
-    this.currentCameraIndex = (this.currentCameraIndex + 1) % this.availableCameras.length;
-    this.currentCamera = undefined; // Forzar reinicio del stream
-    this.cdr.detectChanges();
-
-    setTimeout(() => {
-      this.currentCamera = this.availableCameras[this.currentCameraIndex];
-      this.cdr.detectChanges();
-    }, 200);
   }
 
   // ── Actualizar goBack para recargar lista ─────────────

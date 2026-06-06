@@ -56,7 +56,7 @@ export class UsersComponent implements OnInit {
 
   openEditModal(user: AppUser) {
     this.editingUser = user;
-    this.userForm.patchValue({
+    this.userForm.patchValue({ 
       displayName: user.displayName,
       email: user.email,
       role: user.role,

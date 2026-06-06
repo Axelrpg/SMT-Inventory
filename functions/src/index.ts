@@ -21,7 +21,13 @@ export const createUser = onCall(
             throw new HttpsError('permission-denied', 'Solo admins pueden crear usuarios');
         }
 
-        const { email, password, displayName, role } = request.data;
+        const {
+            email,
+            password,
+            displayName,
+            role,
+            roleId
+        } = request.data;
 
         const userRecord = await admin.auth().createUser({ email, password, displayName });
 
@@ -30,6 +36,7 @@ export const createUser = onCall(
             email,
             displayName,
             role: role || 'user',
+            roleId: roleId || '',
             createdAt: FieldValue.serverTimestamp(),
             createdBy: request.auth.uid
         });

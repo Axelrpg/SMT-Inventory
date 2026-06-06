@@ -73,12 +73,11 @@
 
         <!-- Escáner de búsqueda -->
         @if (searchScannerEnabled) {
-        <div class="scanner-wrapper rounded overflow-hidden mt-2">
-            <zxing-scanner [enable]="searchScannerEnabled" [formats]="searchFormats"
+        <div class="mt-2 mb-2">
+            <app-qr-scanner [enabled]="searchScannerEnabled" hint="Escanea el número de parte"
                 (scanSuccess)="onSearchCodeScanned($event)">
-            </zxing-scanner>
+            </app-qr-scanner>
         </div>
-        <p class="text-muted small text-center mt-1">Apunta al código de barras o QR</p>
         }
 
         @if (isSearching) {
@@ -164,21 +163,11 @@
 
         <!-- Escáner -->
         @if (scannerEnabled) {
-        <div class="scanner-wrapper rounded overflow-hidden mb-3">
-            <zxing-scanner [enable]="scannerEnabled" [formats]="searchFormats" [device]="currentCamera"
-                (camerasFound)="onCamerasFound($event)" (scanSuccess)="onCodeScanned($event)">
-            </zxing-scanner>
-        </div>
-
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <p class="text-muted small text-center">
-                Escaneando {{ scanTarget === 'partNumber' ? 'número de parte' : 'ubicación' }}
-            </p>
-            @if (hasMultipleCameras) {
-            <button class="btn btn-outline-secondary btn-sm" (click)="switchCamera()">
-                <i class="bi bi-arrow-repeat me-1"></i>Cambiar cámara
-            </button>
-            }
+        <div class="mb-3">
+            <app-qr-scanner [enabled]="scannerEnabled"
+                [hint]="'Escaneando ' + (scanTarget === 'partNumber' ? 'número de parte' : 'ubicación')"
+                (scanSuccess)="onCodeScanned($event)">
+            </app-qr-scanner>
         </div>
         }
 
@@ -268,21 +257,11 @@
 
         <!-- Escáner -->
         @if (scannerEnabled) {
-        <div class="scanner-wrapper rounded overflow-hidden mb-3">
-            <zxing-scanner [enable]="scannerEnabled" [formats]="searchFormats" [device]="currentCamera"
-                (camerasFound)="onCamerasFound($event)" (scanSuccess)="onCodeScanned($event)">
-            </zxing-scanner>
-        </div>
-
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <p class="text-muted small mb-0">
-                Apunta al código de barras o QR
-            </p>
-            @if (hasMultipleCameras) {
-            <button class="btn btn-outline-secondary btn-sm" (click)="switchCamera()">
-                <i class="bi bi-arrow-repeat me-1"></i>Cambiar cámara
-            </button>
-            }
+        <div class="mb-3">
+            <app-qr-scanner [enabled]="scannerEnabled"
+                [hint]="'Escaneando ' + (scanTarget === 'partNumber' ? 'número de parte' : 'ubicación')"
+                (scanSuccess)="onCodeScanned($event)">
+            </app-qr-scanner>
         </div>
         }
 

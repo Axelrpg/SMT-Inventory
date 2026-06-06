@@ -53,6 +53,11 @@ export class SubassemblyService {
         return snap.docs.map(d => ({ id: d.id, ...d.data() } as Subassembly));
     }
 
+    async getTotalByPartNumber(partNumber: string): Promise<number> {
+        const items = await this.getByPartNumber(partNumber);
+        return items.reduce((total, item) => total + item.quantity, 0);
+    }
+
     // ── CRUD ─────────────────────────────────────────────
     async add(item: Omit<Subassembly, 'id'>): Promise<string> {
         const ref = collection(this.firestore, 'subassemblies');

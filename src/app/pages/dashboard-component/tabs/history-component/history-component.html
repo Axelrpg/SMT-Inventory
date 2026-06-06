@@ -6,20 +6,23 @@
     <!-- Filtros de origen -->
     <div class="mb-2">
         <small class="text-muted fw-semibold d-block mb-1">Origen</small>
-        <div class="btn-group w-100 mb-2" style="flex-wrap:wrap">
-            <button class="btn btn-sm" [class.btn-primary]="filterSource === 'all'"
-                [class.btn-outline-primary]="filterSource !== 'all'" (click)="setFilterSource('all')">Todos</button>
-            <button class="btn btn-sm" [class.btn-primary]="filterSource === 'smt'"
+        <div class="btn-group w-100 mb-2" style="flex-wrap: wrap;">
+            <button class="btn btn-sm w-100" [class.btn-primary]="filterSource === 'all'"
+                [class.btn-outline-primary]="filterSource !== 'all'" (click)="setFilterSource('all')">
+                Todos
+            </button>
+
+            <button class="btn btn-sm flex-fill" [class.btn-primary]="filterSource === 'smt'"
                 [class.btn-outline-primary]="filterSource !== 'smt'" (click)="setFilterSource('smt')">SMT</button>
-            <button class="btn btn-sm" [class.btn-primary]="filterSource === 'bom'"
+            <button class="btn btn-sm flex-fill" [class.btn-primary]="filterSource === 'bom'"
                 [class.btn-outline-primary]="filterSource !== 'bom'" (click)="setFilterSource('bom')">BOM</button>
-            <button class="btn btn-sm" [class.btn-primary]="filterSource === 'subassembly'"
+            <button class="btn btn-sm flex-fill" [class.btn-primary]="filterSource === 'subassembly'"
                 [class.btn-outline-primary]="filterSource !== 'subassembly'"
                 (click)="setFilterSource('subassembly')">Subensambles</button>
-            <button class="btn btn-sm" [class.btn-primary]="filterSource === 'hilight'"
+            <button class="btn btn-sm flex-fill" [class.btn-primary]="filterSource === 'hilight'"
                 [class.btn-outline-primary]="filterSource !== 'hilight'"
                 (click)="setFilterSource('hilight')">Hilight</button>
-            <button class="btn btn-sm" [class.btn-primary]="filterSource === 'hl'"
+            <button class="btn btn-sm flex-fill" [class.btn-primary]="filterSource === 'hl'"
                 [class.btn-outline-primary]="filterSource !== 'hl'" (click)="setFilterSource('hl')">HL</button>
         </div>
 
