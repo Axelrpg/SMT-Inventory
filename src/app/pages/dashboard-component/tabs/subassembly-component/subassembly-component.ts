@@ -2,8 +2,6 @@ import { Component, inject, OnInit, ChangeDetectorRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
 import { AsyncPipe, DatePipe } from '@angular/common';
-import { ZXingScannerModule } from '@zxing/ngx-scanner';
-import { BarcodeFormat } from '@zxing/library';
 import { SubassemblyService } from '../../../../core/services/subassembly.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ExportService } from '../../../../core/services/export.service';
@@ -19,7 +17,7 @@ type OutputStep = 'form' | 'confirm';
 @Component({
   selector: 'app-subassembly-component',
   standalone: true,
-  imports: [ReactiveFormsModule, FormsModule, ZXingScannerModule, AsyncPipe, DatePipe, QrScannerComponent],
+  imports: [ReactiveFormsModule, FormsModule, AsyncPipe, DatePipe, QrScannerComponent],
   templateUrl: './subassembly-component.html',
   styleUrl: './subassembly-component.css'
 })
@@ -186,32 +184,37 @@ export class SubassemblyComponent implements OnInit {
   onSearch() {
     this.isSearching = !!this.searchText.trim();
     this.filteredItems = this.applyFilter(this.allLoadedItems);
-    this.onSearchTotal();
+
+    // Solo buscar total si tiene exactamente 8 caracteres
+    if (this.searchText.trim().length === 8) {
+      this.onSearchTotal();
+    } else {
+      this.partNumberTotal = null;
+    }
+
     this.cdr.detectChanges();
   }
 
   async onSearchTotal() {
-    if (!this.searchText.trim()) {
+    const search = this.searchText.trim();
+    if (search.length !== 8) {
       this.partNumberTotal = null;
       return;
     }
 
-    const exactMatch = this.allLoadedItems.find(
-      i => i.partNumber.toLowerCase() === this.searchText.trim().toLowerCase()
-    );
+    this.searchingTotal = true;
+    try {
+      // Buscar todos los subensambles que contengan ese número de parte
+      const allItems = await this.subassemblyService.getByPartNumber(search);
+      this.partNumberTotal = allItems.reduce((sum, i) => sum + i.quantity, 0);
 
-    if (exactMatch) {
-      this.searchingTotal = true;
-      try {
-        this.partNumberTotal = await this.subassemblyService.getTotalByPartNumber(exactMatch.partNumber);
-      } catch (error: any) {
-        this.partNumberTotal = null;
-      } finally {
-        this.searchingTotal = false;
-        this.cdr.detectChanges();
-      }
-    } else {
+      // Ordenar filteredItems de mayor a menor cantidad
+      this.filteredItems = [...this.filteredItems].sort((a, b) => b.quantity - a.quantity);
+    } catch (e: any) {
       this.partNumberTotal = null;
+    } finally {
+      this.searchingTotal = false;
+      this.cdr.detectChanges();
     }
   }
 

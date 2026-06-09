@@ -1,10 +1,9 @@
 <div class="qr-scanner-container">
-    <zxing-scanner [enable]="enabled" [formats]="formats" [device]="currentCamera" [autofocusEnabled]="true"
-        [tryHarder]="true" (camerasFound)="onCamerasFound($event)" (scanSuccess)="onScanSuccess($event)"
-        (scanError)="onScanError($event)">
-    </zxing-scanner>
+    <video #videoEl autoplay playsinline muted style="width:100%; display:block; max-height:320px; object-fit:cover">
+    </video>
+    <canvas #canvasEl style="display:none"></canvas>
 
-    <!-- Overlay con guía visual -->
+    <!-- Overlay -->
     <div class="qr-overlay">
         <div class="qr-frame">
             <div class="corner top-left"></div>
@@ -18,10 +17,17 @@
     <!-- Controles -->
     <div class="qr-controls">
         <span class="qr-hint">{{ hint }}</span>
-        @if (hasMultipleCameras) {
-        <button class="btn btn-sm btn-light" (click)="switchCamera()">
-            <i class="bi bi-arrow-repeat me-1"></i>Cambiar cámara
-        </button>
-        }
+        <div class="d-flex gap-2">
+            @if (torchSupported) {
+            <button class="btn btn-sm btn-light" (click)="toggleTorch()">
+                <i class="bi" [class.bi-lightbulb-fill]="torchOn" [class.bi-lightbulb]="!torchOn"></i>
+            </button>
+            }
+            @if (hasMultipleCameras) {
+            <button class="btn btn-sm btn-light" (click)="switchCamera()">
+                <i class="bi bi-arrow-repeat"></i>
+            </button>
+            }
+        </div>
     </div>
 </div>

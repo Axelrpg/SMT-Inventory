@@ -1,8 +1,6 @@
 import { Component, inject, OnInit, ChangeDetectorRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators, FormsModule } from '@angular/forms';
 import { AsyncPipe, DatePipe } from '@angular/common';
-import { ZXingScannerModule } from '@zxing/ngx-scanner';
-import { BarcodeFormat } from '@zxing/library';
 import { SmtService } from '../../../../core/services/smt.service';
 import { SmtRoll, SmtMovement } from '../../../../core/models/smt.model';
 import { Observable } from 'rxjs';
@@ -17,7 +15,7 @@ type InputMode = 'manual' | 'camera';
 @Component({
   selector: 'app-smt-component',
   standalone: true,
-  imports: [ReactiveFormsModule, FormsModule, ZXingScannerModule, AsyncPipe, DatePipe, QrScannerComponent],
+  imports: [ReactiveFormsModule, FormsModule, AsyncPipe, DatePipe, QrScannerComponent],
   templateUrl: './smt-component.html',
   styleUrl: './smt-component.css'
 })
@@ -61,13 +59,6 @@ export class SmtComponent implements OnInit {
 
   showEditModal = false;
   editingRoll: SmtRoll | null = null;
-
-  formats = [
-    BarcodeFormat.QR_CODE,
-    BarcodeFormat.CODE_128,
-    BarcodeFormat.EAN_13,
-    BarcodeFormat.CODE_39
-  ];
 
   // Formulario entrada
   inputForm = this.fb.group({

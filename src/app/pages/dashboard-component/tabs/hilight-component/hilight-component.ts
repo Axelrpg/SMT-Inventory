@@ -2,8 +2,6 @@ import { Component, inject, OnInit, ChangeDetectorRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
 import { AsyncPipe, DatePipe } from '@angular/common';
-import { ZXingScannerModule } from '@zxing/ngx-scanner';
-import { BarcodeFormat } from '@zxing/library';
 import { HilightService } from '../../../../core/services/hilight.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ExportService } from '../../../../core/services/export.service';
@@ -18,7 +16,7 @@ type OutputStep = 'form' | 'locations' | 'confirm';
 @Component({
   selector: 'app-hilight-component',
   standalone: true,
-  imports: [ReactiveFormsModule, FormsModule, ZXingScannerModule, AsyncPipe, DatePipe, QrScannerComponent],
+  imports: [ReactiveFormsModule, FormsModule, AsyncPipe, DatePipe, QrScannerComponent],
   templateUrl: './hilight-component.html',
   styleUrl: './hilight-component.css'
 })
