@@ -60,9 +60,17 @@ export class SubassemblyComponent implements OnInit {
   movements$?: Observable<SubassemblyMovement[]>;
   selectedItem: Subassembly | null = null;
 
+  // ── Salida rapida ─────────────────────────────────────
+  showQuickOutputModal = false;
+  quickOutputItem: Subassembly | null = null;
+  quickOutputForm = this.fb.group({
+    quantity: [null as number | null, [Validators.required, Validators.min(1)]]
+  });
+
   // ── Escáner ───────────────────────────────────────────
   scannerEnabled = false;
   scanTarget: 'magazine' | 'partNumber' = 'magazine';
+  magazineDigits = "";
 
   // ── Modal edición ─────────────────────────────────────
   showEditModal = false;
@@ -142,7 +150,6 @@ export class SubassemblyComponent implements OnInit {
     }
   }
 
-  // Al cargar los items, buscar sus familias
   async loadFamiliesForItems(items: Subassembly[]) {
     for (const item of items) {
       if (!this.familyMap.has(item.partNumber)) {
@@ -151,6 +158,39 @@ export class SubassemblyComponent implements OnInit {
       }
     }
     this.cdr.detectChanges();
+  }
+
+  get magazinePreview(): string {
+    return `MAG-${this.magazineDigits.padEnd(4, '_')}`;
+  }
+
+  get magazineFull(): string {
+    return `MAG-${this.magazineDigits}`;
+  }
+
+  onMagazineInput(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const digits = input.value.replace(/\D/g, '').slice(0, 4);
+    this.magazineDigits = digits;
+    input.value = digits;
+
+    const fullMagazine = digits.length === 4 ? `MAG-${digits}` : '';
+
+    if (this.view === 'input') {
+      this.inputForm.patchValue({ magazine: fullMagazine });
+    } else if (this.view === 'output') {
+      this.outputForm.patchValue({ magazine: fullMagazine });
+    }
+    this.cdr.detectChanges();
+  }
+
+  onEditMagazineInput(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const digits = input.value.replace(/\D/g, '').substring(0, 4);
+    input.value = digits;
+    this.editForm.patchValue({
+      magazine: digits.length === 4 ? `MAG-${digits}` : ''
+    });
   }
 
   async onPageSizeChange(size: number) {
@@ -246,6 +286,7 @@ export class SubassemblyComponent implements OnInit {
     this.foundItem = null;
     this.error = '';
     this.familyForInput = null;
+    this.magazineDigits = '';
     this.inputForm.reset({ quantity: null });
     this.outputForm.reset({ quantity: null });
     if (!this.isSearching) this.loadFirstPage();
@@ -257,6 +298,7 @@ export class SubassemblyComponent implements OnInit {
     this.error = '';
     this.scannerEnabled = false;
     this.familyForInput = null;
+    this.magazineDigits = '';
     this.inputForm.reset({ quantity: null });
   }
 
@@ -266,6 +308,7 @@ export class SubassemblyComponent implements OnInit {
     this.foundItem = null;
     this.error = '';
     this.scannerEnabled = false;
+    this.magazineDigits = '';
     this.outputForm.reset({ quantity: null });
   }
 
@@ -302,14 +345,20 @@ export class SubassemblyComponent implements OnInit {
     if (this.view === 'input') {
       if (this.scanTarget === 'magazine') {
         this.inputForm.patchValue({ magazine: code });
+        const digits = code.replace('MAG-', '').replace(/\D/g, '').slice(0, 4);
+        this.magazineDigits = digits;
       } else {
         this.inputForm.patchValue({ partNumber: code });
-        this.onPartNumberChange(); // ← agrega esto
+        this.onPartNumberChange();
       }
     }
 
     if (this.view === 'output') {
-      this.outputForm.patchValue({ magazine: code });
+      if (this.scanTarget === 'magazine') {
+        this.outputForm.patchValue({ magazine: code });
+        const digits = code.replace('MAG-', '').replace(/\D/g, '').slice(0, 4);
+        this.magazineDigits = digits;
+      }
     }
 
     this.cdr.detectChanges();
@@ -392,16 +441,21 @@ export class SubassemblyComponent implements OnInit {
     }
   }
 
+  openQuickOutput(item: Subassembly) {
+    this.quickOutputItem = item;
+    this.quickOutputForm.reset({ quantity: null });
+    this.error = '';
+    this.showQuickOutputModal = true;
+  }
+
   async saveOutput() {
     if (!this.foundItem?.id) return;
 
-    // Si es modo 'custom', validamos el formulario de forma normal
     if (this.withdrawMode === 'custom' && this.outputForm.invalid) return;
     this.loading = true;
     this.error = '';
 
     try {
-      // Determinamos el valor según el modo seleccionado
       const quantity = this.withdrawMode === 'all'
         ? this.foundItem.quantity
         : Number(this.outputForm.value.quantity);
@@ -424,6 +478,48 @@ export class SubassemblyComponent implements OnInit {
       this.success = `Salida registrada — Magazine ${this.foundItem.magazine} (-${quantity} pzs)`;
       this.goBack();
       setTimeout(() => this.success = '', 4000);
+    } catch (e: any) {
+      this.error = e.message || 'Error al registrar salida';
+    } finally {
+      this.loading = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async saveQuickOutput() {
+    if (this.quickOutputForm.invalid || !this.quickOutputItem?.id) return;
+    this.loading = true;
+    this.error = '';
+
+    try {
+      const { quantity } = this.quickOutputForm.value;
+
+      if (quantity! > this.quickOutputItem.quantity) {
+        this.error = `Stock insuficiente. Disponible: ${this.quickOutputItem.quantity} pzs`;
+        return;
+      }
+
+      await this.subassemblyService.registerMovement(
+        this.quickOutputItem.id!,
+        this.quickOutputItem.magazine,
+        this.quickOutputItem.partNumber,
+        'salida',
+        quantity!
+      );
+
+      this.success = `Salida registrada — ${this.quickOutputItem.magazine} (-${quantity} pzs)`;
+      this.showQuickOutputModal = false;
+
+      const idx = this.allLoadedItems.findIndex(i => i.id === this.quickOutputItem!.id);
+      if (idx !== -1) {
+        this.allLoadedItems[idx] = {
+          ...this.allLoadedItems[idx],
+          quantity: this.allLoadedItems[idx].quantity - quantity!
+        };
+        this.filteredItems = this.applyFilter(this.allLoadedItems);
+      }
+
+      setTimeout(() => this.success = '', 3000);
     } catch (e: any) {
       this.error = e.message || 'Error al registrar salida';
     } finally {
@@ -470,13 +566,12 @@ export class SubassemblyComponent implements OnInit {
     }
   }
 
-  // Función para cambiar de modo y resetear/asignar valores
   setWithdrawMode(mode: 'all' | 'custom') {
     this.withdrawMode = mode;
     if (mode === 'all') {
       this.outputForm.get('quantity')?.setValue(this.foundItem?.quantity || 0);
     } else {
-      this.outputForm.get('quantity')?.setValue(null); // Limpia el input si pasa a personalizado
+      this.outputForm.get('quantity')?.setValue(null);
     }
   }
 

@@ -123,6 +123,11 @@
                     </span>
                 </div>
                 <div class="d-flex gap-1">
+                    @if (item.quantity > 0) {
+                    <button class="btn btn-warning btn-sm" (click)="openQuickOutput(item)" title="Salida rápida">
+                        <i class="bi bi-box-arrow-up"></i>
+                    </button>
+                    }
                     <button class="btn btn-outline-secondary btn-sm" (click)="openHistory(item)" title="Historial">
                         <i class="bi bi-clock-history"></i>
                     </button>
@@ -185,8 +190,18 @@
         <!-- Magazine -->
         <div class="mb-3">
             <label class="form-label fw-semibold">Magazine</label>
+
+            <!-- Preview -->
+            <div class="mb-1">
+                <span class="font-monospace fw-bold fs-5 text-primary">
+                    {{ magazinePreview }}
+                </span>
+            </div>
+
             <div class="input-group">
-                <input type="text" class="form-control" formControlName="magazine" placeholder="Ej. MAG-001">
+                <span class="input-group-text fw-semibold text-muted">MAG-</span>
+                <input type="text" class="form-control font-monospace" inputmode="numeric" placeholder="0000"
+                    maxlength="4" [value]="magazineDigits" (input)="onMagazineInput($event)">
                 <button type="button" class="btn" [class.btn-primary]="scannerEnabled && scanTarget === 'magazine'"
                     [class.btn-outline-secondary]="!(scannerEnabled && scanTarget === 'magazine')"
                     (click)="openCameraFor('magazine')">
@@ -194,6 +209,16 @@
                         [class.bi-camera]="!(scannerEnabled && scanTarget === 'magazine')">
                     </i>
                 </button>
+            </div>
+
+            <!-- Contador -->
+            <div class="d-flex justify-content-between mt-1">
+                <small class="text-muted">Solo números</small>
+                <small [class.text-success]="magazineDigits.length === 4"
+                    [class.text-danger]="magazineDigits.length > 0 && magazineDigits.length < 4"
+                    [class.text-muted]="magazineDigits.length === 0">
+                    {{ magazineDigits.length }}/4
+                </small>
             </div>
         </div>
 
@@ -259,28 +284,46 @@
     <form [formGroup]="outputForm">
         <div class="mb-3">
             <label class="form-label fw-semibold">Magazine</label>
+
+            <!-- Preview -->
+            <div class="mb-1">
+                <span class="font-monospace fw-bold fs-5 text-primary">
+                    {{ magazinePreview }}
+                </span>
+            </div>
+
             <div class="input-group">
-                <input type="text" class="form-control" formControlName="magazine" placeholder="Ej. MAG-001">
+                <span class="input-group-text fw-semibold text-muted">MAG-</span>
+                <input type="text" class="form-control font-monospace" inputmode="numeric" placeholder="0000"
+                    maxlength="4" [value]="magazineDigits" (input)="onMagazineInput($event)">
                 <button type="button" class="btn" [class.btn-primary]="scannerEnabled"
                     [class.btn-outline-secondary]="!scannerEnabled" (click)="openCameraFor('magazine')">
                     <i class="bi" [class.bi-camera-video-fill]="scannerEnabled" [class.bi-camera]="!scannerEnabled">
                     </i>
                 </button>
             </div>
+
+            <!-- Contador -->
+            <div class="d-flex justify-content-between mt-1">
+                <small class="text-muted">Solo números</small>
+                <small [class.text-success]="magazineDigits.length === 4"
+                    [class.text-danger]="magazineDigits.length > 0 && magazineDigits.length < 4"
+                    [class.text-muted]="magazineDigits.length === 0">
+                    {{ magazineDigits.length }}/4
+                </small>
+            </div>
         </div>
 
         <!-- Escáner -->
         @if (scannerEnabled) {
         <div class="mb-3">
-            <app-qr-scanner [enabled]="scannerEnabled"
-                [hint]="'Escaneando ' + (scanTarget === 'partNumber' ? 'número de parte' : 'ubicación')"
-                (scanSuccess)="onCodeScanned($event)">
+            <app-qr-scanner [enabled]="scannerEnabled" hint="Escanea el magazine" (scanSuccess)="onCodeScanned($event)">
             </app-qr-scanner>
         </div>
         }
 
         <button class="btn btn-warning w-100" (click)="searchByMagazine()"
-            [disabled]="!outputForm.get('magazine')?.value?.trim() || loading">
+            [disabled]="magazineDigits.length !== 4 || loading">
             @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
             <i class="bi bi-search me-2"></i>Buscar Magazine
         </button>
@@ -397,7 +440,13 @@
                 <form [formGroup]="editForm">
                     <div class="mb-3">
                         <label class="form-label">Magazine</label>
-                        <input type="text" class="form-control" formControlName="magazine">
+                        <div class="input-group">
+                            <span class="input-group-text fw-semibold text-muted">MAG-</span>
+                            <input type="text" class="form-control font-monospace" inputmode="numeric"
+                                placeholder="0000" maxlength="4"
+                                [value]="editingItem?.magazine?.replace('MAG-', '') || ''"
+                                (input)="onEditMagazineInput($event)">
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Número de parte</label>
@@ -414,6 +463,71 @@
                 <button class="btn btn-primary" (click)="saveEdit()" [disabled]="editForm.invalid || loading">
                     @if (loading) { <span class="spinner-border spinner-border-sm me-1"></span> }
                     Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+}
+
+<!-- Modal salida rápida -->
+@if (showQuickOutputModal && quickOutputItem) {
+<div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5)">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-box-arrow-up me-2 text-warning"></i>Salida rápida
+                </h5>
+                <button type="button" class="btn-close" (click)="showQuickOutputModal = false"></button>
+            </div>
+            <div class="modal-body">
+                @if (error) {
+                <div class="alert alert-danger py-2 small">{{ error }}</div>
+                }
+
+                <!-- Info del item -->
+                <div class="card border-0 bg-light mb-3">
+                    <div class="card-body py-2">
+                        <div class="fw-bold">
+                            <i class="bi bi-grid-3x3-gap me-1 text-secondary"></i>
+                            {{ quickOutputItem.magazine }}
+                        </div>
+                        <small class="text-muted d-block">{{ quickOutputItem.partNumber }}</small>
+                        @if (familyMap.get(quickOutputItem.partNumber)) {
+                        <small class="text-primary d-block">
+                            <i class="bi bi-diagram-3 me-1"></i>
+                            {{ familyMap.get(quickOutputItem.partNumber) }}
+                        </small>
+                        }
+                        <span class="badge mt-1" [class.bg-success]="quickOutputItem.quantity > 10"
+                            [class.bg-warning]="quickOutputItem.quantity > 0 && quickOutputItem.quantity <= 10"
+                            [class.bg-danger]="quickOutputItem.quantity === 0">
+                            Disponible: {{ quickOutputItem.quantity }} pzs
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Cantidad -->
+                <form [formGroup]="quickOutputForm">
+                    <label class="form-label fw-semibold">Cantidad a retirar</label>
+                    <input type="number" class="form-control form-control-lg text-center" formControlName="quantity"
+                        min="1" [max]="quickOutputItem.quantity" placeholder="0">
+                    <div class="form-text text-center">
+                        Máximo {{ quickOutputItem.quantity }} pzs
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" (click)="showQuickOutputModal = false">
+                    Cancelar
+                </button>
+                <button class="btn btn-warning" (click)="saveQuickOutput()"
+                    [disabled]="quickOutputForm.invalid || loading">
+                    @if (loading) {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    <i class="bi bi-box-arrow-up me-1"></i>Confirmar salida
                 </button>
             </div>
         </div>

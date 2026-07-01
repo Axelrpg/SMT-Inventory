@@ -28,7 +28,7 @@ export class DashboardComponent implements OnInit {
   private cdr = inject(ChangeDetectorRef);
 
   isAdmin = false;
-  activeTab: Tab = 'smt';
+  activeTab: Tab = 'subassembly';
   permissions: RolePermissions | null = null;
   sidebarOpen = false;
   userName = '';
