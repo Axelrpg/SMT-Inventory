@@ -63,7 +63,7 @@ export class SmtComponent implements OnInit {
   // Formulario entrada
   inputForm = this.fb.group({
     partNumber: ['', [Validators.required, Validators.minLength(18), Validators.maxLength(18)]],
-    quantity: [null, [Validators.required, Validators.min(1)]],
+    quantity: [null as number | null, [Validators.required, Validators.min(1)]],
     location: ['', Validators.required],
   });
 
@@ -242,23 +242,54 @@ export class SmtComponent implements OnInit {
   onCodeScanned(code: string) {
     if (!code) return;
     this.scannerEnabled = false;
-    const trimmed = code.substring(0, 18);
 
     if (this.view === 'input') {
-      if (this.scanTarget === 'partNumber') {
-        this.inputForm.patchValue({ partNumber: trimmed });
-      } else if (this.scanTarget === 'location') {
-        this.inputForm.patchValue({ location: trimmed });
+      // Intentar parsear como DataMatrix con $
+      const parsed = this.parseDataMatrix(code);
+      if (parsed) {
+        // DataMatrix — llenar número de parte y cantidad automáticamente
+        this.inputForm.patchValue({
+          partNumber: parsed.partNumber.substring(0, 18),
+          quantity: parsed.quantity as any
+        });
+        this.success = `DataMatrix leído — ${parsed.partNumber} (${parsed.quantity} pzs)`;
+        setTimeout(() => this.success = '', 3000);
+      } else {
+        // QR normal — llenar solo el campo apuntado
+        const trimmed = code.substring(0, 18);
+        if (this.scanTarget === 'partNumber') {
+          this.inputForm.patchValue({ partNumber: trimmed });
+        } else {
+          this.inputForm.patchValue({ location: trimmed });
+        }
       }
     }
 
     if (this.view === 'output') {
+      const trimmed = code.substring(0, 18);
       if (this.scanTarget === 'partNumber') {
         this.outputForm.patchValue({ partNumber: trimmed });
+      } else {
+        this.outputForm.patchValue({ location: trimmed });
       }
     }
 
     this.cdr.detectChanges();
+  }
+
+  parseDataMatrix(raw: string): { partNumber: string; quantity: number } | null {
+    const parts = raw.split('$');
+
+    // Necesitamos al menos 5 partes
+    if (parts.length < 5) return null;
+
+    const partNumber = parts[1]?.trim();
+    const quantityStr = parts[4]?.trim();
+    const quantity = parseInt(quantityStr, 10);
+
+    if (!partNumber || isNaN(quantity)) return null;
+
+    return { partNumber, quantity };
   }
 
   // ── Entrada ──────────────────────────────────────────

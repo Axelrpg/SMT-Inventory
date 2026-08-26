@@ -1,4 +1,9 @@
-import { Component, EventEmitter, Input, OnDestroy, Output, inject, ChangeDetectorRef, SimpleChanges, OnChanges, ViewChild, ElementRef, NgZone } from '@angular/core';
+import {
+  Component, EventEmitter, Input, Output,
+  OnDestroy, OnChanges, SimpleChanges,
+  ElementRef, ViewChild, inject, ChangeDetectorRef, NgZone
+} from '@angular/core';
+import { RGBLuminanceSource, BinaryBitmap, HybridBinarizer } from '@zxing/library';
 
 @Component({
   selector: 'app-qr-scanner',
@@ -12,7 +17,9 @@ export class QrScannerComponent implements OnChanges, OnDestroy {
   @ViewChild('canvasEl') canvasEl!: ElementRef<HTMLCanvasElement>;
 
   @Input() enabled = false;
-  @Input() hint = 'Apunta la cámara al código QR';
+  @Input() hint = 'Apunta la cámara al código';
+  // ← nuevo: indica si debe leer DataMatrix además de QR
+  @Input() dataMatrix = false;
   @Output() scanSuccess = new EventEmitter<string>();
 
   private cdr = inject(ChangeDetectorRef);
@@ -20,8 +27,8 @@ export class QrScannerComponent implements OnChanges, OnDestroy {
 
   private stream: MediaStream | null = null;
   private animationId: number | null = null;
-  private detector: any = null;
-  private jsQR: any = null;
+  private nativeDetector: any = null;
+  private zxingReader: any = null;
 
   cameras: MediaDeviceInfo[] = [];
   currentCameraIndex = 0;
@@ -34,35 +41,27 @@ export class QrScannerComponent implements OnChanges, OnDestroy {
 
   async ngOnChanges(changes: SimpleChanges) {
     if (changes['enabled']) {
-      if (this.enabled) {
-        await this.start();
-      } else {
-        this.stop();
-      }
+      if (this.enabled) await this.start();
+      else this.stop();
     }
   }
 
   async start() {
     try {
-      // Cargar jsQR como fallback
-      if (!this.jsQR) {
-        const mod = await import('jsqr');
-        this.jsQR = mod.default;
-      }
-
-      // Inicializar BarcodeDetector nativo si está disponible
+      // Inicializar detector nativo si está disponible
       if ('BarcodeDetector' in window) {
-        this.detector = new (window as any).BarcodeDetector({
-          formats: ['qr_code']
-        });
+        const formats = ['qr_code'];
+        if (this.dataMatrix) formats.push('data_matrix');
+        this.nativeDetector = new (window as any).BarcodeDetector({ formats });
+      } else {
+        // Fallback: usar @zxing/library para DataMatrix y QR
+        await this.initZxing();
       }
 
-      // Obtener cámaras disponibles
       const devices = await navigator.mediaDevices.enumerateDevices();
       this.cameras = devices.filter(d => d.kind === 'videoinput');
       this.hasMultipleCameras = this.cameras.length > 1;
 
-      // Preferir cámara trasera
       const backIdx = this.cameras.findIndex(c =>
         c.label.toLowerCase().includes('back') ||
         c.label.toLowerCase().includes('rear') ||
@@ -77,17 +76,27 @@ export class QrScannerComponent implements OnChanges, OnDestroy {
     }
   }
 
+  async initZxing() {
+    try {
+      const zxing = await import('@zxing/library');
+      const hints = new Map();
+      const formats = [zxing.BarcodeFormat.QR_CODE];
+      if (this.dataMatrix) formats.push(zxing.BarcodeFormat.DATA_MATRIX);
+      hints.set(zxing.DecodeHintType.POSSIBLE_FORMATS, formats);
+      hints.set(zxing.DecodeHintType.TRY_HARDER, true);
+      this.zxingReader = new zxing.MultiFormatReader();
+      this.zxingReader.setHints(hints);
+    } catch (e) {
+      console.error('Error cargando @zxing/library:', e);
+    }
+  }
+
   async startCamera() {
-    if (this.stream) {
-      this.stream.getTracks().forEach(t => t.stop());
-    }
-    if (this.animationId) {
-      cancelAnimationFrame(this.animationId);
-    }
+    if (this.stream) this.stream.getTracks().forEach(t => t.stop());
+    if (this.animationId) cancelAnimationFrame(this.animationId);
 
     const deviceId = this.cameras[this.currentCameraIndex]?.deviceId;
 
-    // Constraints optimizadas para QR
     const constraints: MediaStreamConstraints = {
       video: {
         deviceId: deviceId ? { exact: deviceId } : undefined,
@@ -95,12 +104,6 @@ export class QrScannerComponent implements OnChanges, OnDestroy {
         width: { ideal: 1920 },
         height: { ideal: 1080 },
         frameRate: { ideal: 30 },
-        // @ts-ignore
-        focusMode: { ideal: 'continuous' },
-        // @ts-ignore
-        exposureMode: { ideal: 'continuous' },
-        // @ts-ignore
-        whiteBalanceMode: { ideal: 'continuous' }
       }
     };
 
@@ -109,7 +112,6 @@ export class QrScannerComponent implements OnChanges, OnDestroy {
     video.srcObject = this.stream;
     await video.play();
 
-    // Verificar soporte de linterna
     const track = this.stream.getVideoTracks()[0];
     const caps = track.getCapabilities() as any;
     this.torchSupported = !!caps?.torch;
@@ -131,20 +133,29 @@ export class QrScannerComponent implements OnChanges, OnDestroy {
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0);
 
-    if (this.detector) {
-      // Usar BarcodeDetector nativo (más rápido)
-      this.detector.detect(video).then((results: any[]) => {
-        if (results.length > 0) {
-          this.emitResult(results[0].rawValue);
-        }
+    if (this.nativeDetector) {
+      // BarcodeDetector nativo — soporta QR y DataMatrix
+      this.nativeDetector.detect(video).then((results: any[]) => {
+        if (results.length > 0) this.emitResult(results[0].rawValue);
       }).catch(() => { });
-    } else {
-      // Fallback a jsQR
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const result = this.jsQR(imageData.data, imageData.width, imageData.height, {
-        inversionAttempts: 'dontInvert'
-      });
-      if (result) this.emitResult(result.data);
+    } else if (this.zxingReader) {
+      try {
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+        // Convertir a escala de grises para zxing
+        const grayData = new Uint8ClampedArray(canvas.width * canvas.height);
+        for (let i = 0; i < canvas.width * canvas.height; i++) {
+          const r = imageData.data[i * 4];
+          const g = imageData.data[i * 4 + 1];
+          const b = imageData.data[i * 4 + 2];
+          grayData[i] = Math.round(r * 0.299 + g * 0.587 + b * 0.114);
+        }
+
+        const luminance = new RGBLuminanceSource(grayData, canvas.width, canvas.height);
+        const bitmap = new BinaryBitmap(new HybridBinarizer(luminance));
+        const result = this.zxingReader.decode(bitmap);
+        if (result) this.emitResult(result.getText());
+      } catch (_) { }
     }
 
     this.animationId = requestAnimationFrame(() => this.scanLoop());
@@ -171,18 +182,10 @@ export class QrScannerComponent implements OnChanges, OnDestroy {
   }
 
   stop() {
-    if (this.animationId) {
-      cancelAnimationFrame(this.animationId);
-      this.animationId = null;
-    }
-    if (this.stream) {
-      this.stream.getTracks().forEach(t => t.stop());
-      this.stream = null;
-    }
+    if (this.animationId) { cancelAnimationFrame(this.animationId); this.animationId = null; }
+    if (this.stream) { this.stream.getTracks().forEach(t => t.stop()); this.stream = null; }
     this.torchOn = false;
   }
 
-  ngOnDestroy() {
-    this.stop();
-  }
+  ngOnDestroy() { this.stop(); }
 }

@@ -6,6 +6,11 @@
     overflow: hidden;
 }
 
+zxing-scanner {
+    width: 100%;
+    display: block;
+}
+
 .qr-overlay {
     position: absolute;
     inset: 0;

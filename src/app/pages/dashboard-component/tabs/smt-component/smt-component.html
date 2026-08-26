@@ -164,8 +164,8 @@
         <!-- Escáner -->
         @if (scannerEnabled) {
         <div class="mb-3">
-            <app-qr-scanner [enabled]="scannerEnabled"
-                [hint]="'Escaneando ' + (scanTarget === 'partNumber' ? 'número de parte' : 'ubicación')"
+            <app-qr-scanner [enabled]="scannerEnabled" [dataMatrix]="true"
+                [hint]="scanTarget === 'partNumber' ? 'Escanea el código DataMatrix o QR' : 'Escanea la ubicación'"
                 (scanSuccess)="onCodeScanned($event)">
             </app-qr-scanner>
         </div>
