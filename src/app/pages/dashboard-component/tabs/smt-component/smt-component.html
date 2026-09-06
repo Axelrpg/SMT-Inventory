@@ -22,13 +22,39 @@
     </div>
 
     <!-- Botones entrada/salida -->
-    <div class="d-grid gap-2 mb-3">
-        <button class="btn btn-success" (click)="openInput()">
-            <i class="bi bi-box-arrow-in-down me-2"></i>Registrar Entrada
-        </button>
-        <button class="btn btn-warning" (click)="openOutput()">
-            <i class="bi bi-box-arrow-up me-2"></i>Registrar Salida
-        </button>
+    <div class="mb-3">
+        <!-- Fila de Entradas -->
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <button class="btn btn-success w-100" (click)="openInput()">
+                    <i class="bi bi-box-arrow-in-down me-2"></i>Registrar Entrada
+                </button>
+            </div>
+            @if (isAdmin) {
+            <div class="col-6">
+                <button class="btn btn-outline-success w-100" (click)="openBulkInput()">
+                    <i class="bi bi-boxes me-2"></i>Entrada Masiva
+                </button>
+            </div>
+            }
+
+        </div>
+
+        <!-- Fila de Salidas -->
+        <div class="row g-2">
+            <div class="col-6">
+                <button class="btn btn-warning w-100" (click)="openOutput()">
+                    <i class="bi bi-box-arrow-up me-2"></i>Registrar Salida
+                </button>
+            </div>
+            @if (isAdmin) {
+            <div class="col-6">
+                <button class="btn btn-outline-warning w-100" (click)="openBulkOutput()">
+                    <i class="bi bi-layers me-2"></i>Salida Masiva
+                </button>
+            </div>
+            }
+        </div>
     </div>
 
     <!-- Selector de tamaño de página -->
@@ -113,6 +139,11 @@
                     </span>
                 </div>
                 <div class="d-flex gap-1">
+                    @if (roll.quantity > 0) {
+                    <button class="btn btn-warning btn-sm" (click)="openQuickOutput(roll)" title="Salida rápida">
+                        <i class="bi bi-box-arrow-up"></i>
+                    </button>
+                    }
                     <button class="btn btn-outline-secondary btn-sm" (click)="openHistory(roll)" title="Historial">
                         <i class="bi bi-clock-history"></i>
                     </button>
@@ -354,6 +385,190 @@
     }
     }
 
+    <!-- ══════════════ ENTRADA MASIVA ══════════════ -->
+    @if (view === 'bulk-input') {
+    <button class="btn btn-link ps-0 mb-2" (click)="goBack()">
+        <i class="bi bi-arrow-left me-1"></i>Cancelar
+    </button>
+    <h6 class="fw-bold mb-3 text-success">
+        <i class="bi bi-boxes me-2"></i>Entrada Masiva por Texto
+    </h6>
+
+    <div class="mb-3">
+        <label class="form-label fw-semibold small">Ubicación general (por defecto)</label>
+        <input type="text" class="form-control form-control-sm mb-2" [(ngModel)]="defaultInputLocation"
+            placeholder="Ej. RECEPCION">
+
+        <label class="form-label fw-semibold small">Pega las líneas o códigos aquí</label>
+        <textarea class="form-control font-monospace small" rows="5" [(ngModel)]="bulkInputText"
+            placeholder="Formatos aceptados (uno por línea):&#10;1) DataMatrix: 01$PARTE18CHARS$1$1$100$&#10;2) CSV: NUMERO_PARTE, CANTIDAD, UBICACION"></textarea>
+        <div class="form-text small">Puedes copiar datos desde Excel o bloc de notas y pegarlos aquí.</div>
+    </div>
+
+    <button class="btn btn-outline-success w-100 mb-3" (click)="processBulkInputText()"
+        [disabled]="!bulkInputText.trim()">
+        <i class="bi bi-arrow-down-square me-1"></i>Procesar Texto a la Lista
+    </button>
+
+    @if (loading) {
+    <div class="mb-3">
+        <div class="d-flex justify-content-between small fw-bold text-success mb-1">
+            <span>Guardando en base de datos...</span>
+            <span>{{ uploadProgress }}%</span>
+        </div>
+        <div class="progress" style="height: 15px;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar"
+                [style.width.%]="uploadProgress" [attr.aria-valuenow]="uploadProgress" aria-valuemin="0"
+                aria-valuemax="100">
+            </div>
+        </div>
+    </div>
+    }
+
+    <button class="btn btn-success w-100 btn-lg mb-3" (click)="confirmBulkInput()"
+        [disabled]="bulkInputList.length === 0 || loading">
+        @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+        Confirmar {{ bulkInputList.length }} Entradas
+    </button>
+
+    <!-- Vista previa antes de guardar -->
+    <div class="table-responsive mb-3">
+        <table class="table table-sm align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Nº Parte</th>
+                    <th>Cant.</th>
+                    <th>Ubicación</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (item of bulkInputList; track $index) {
+                <tr>
+                    <td><small class="fw-bold font-monospace">{{ item.partNumber }}</small></td>
+                    <td>
+                        <input type="number" class="form-control form-control-sm text-center" style="width:75px"
+                            [(ngModel)]="item.quantity" min="1">
+                    </td>
+                    <td>
+                        <input type="text" class="form-control form-control-sm" style="width:110px"
+                            [(ngModel)]="item.location">
+                    </td>
+                    <td>
+                        <button class="btn btn-link text-danger btn-sm p-0" (click)="removeBulkInputItem($index)">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                }
+                @if (bulkInputList.length === 0) {
+                <tr>
+                    <td colspan="4" class="text-center text-muted py-3 small">
+                        Pega texto arriba y presiona "Procesar Texto" para previsualizar.
+                    </td>
+                </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    }
+
+    <!-- ══════════════ SALIDA MASIVA ══════════════ -->
+    @if (view === 'bulk-output') {
+    <button class="btn btn-link ps-0 mb-2" (click)="goBack()">
+        <i class="bi bi-arrow-left me-1"></i>Cancelar
+    </button>
+    <h6 class="fw-bold mb-3 text-warning">
+        <i class="bi bi-layers me-2"></i>Salida Masiva por Texto
+    </h6>
+
+    <div class="mb-3">
+        <label class="form-label fw-semibold small">Pega las líneas a retirar</label>
+        <textarea class="form-control font-monospace small" rows="5" [(ngModel)]="bulkOutputText"
+            placeholder="Formatos aceptados (uno por línea):&#10;NUMERO_PARTE, CANTIDAD&#10;Ejemplo:&#10;123456789012345678, 50&#10;987654321098765432, 100"></textarea>
+    </div>
+
+    @if (loading && searchProgress > 0) {
+    <div class="mb-3">
+        <div class="d-flex justify-content-between small fw-bold text-warning mb-1">
+            <span>Buscando stock disponible...</span>
+            <span>{{ searchProgress }}%</span>
+        </div>
+        <div class="progress" style="height: 15px;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated bg-warning" role="progressbar"
+                [style.width.%]="searchProgress" [attr.aria-valuenow]="searchProgress" aria-valuemin="0"
+                aria-valuemax="100">
+            </div>
+        </div>
+    </div>
+    }
+
+    <button class="btn btn-outline-warning w-100 mb-3" (click)="processBulkOutputText()"
+        [disabled]="!bulkOutputText.trim() || loading">
+        @if (loading) { <span class="spinner-border spinner-border-sm me-1"></span> }
+        <i class="bi bi-search me-1"></i>Buscar y Cargar a la Lista
+    </button>
+
+    @if (loading && outputProgress > 0) {
+    <div class="mb-3">
+        <div class="d-flex justify-content-between small fw-bold text-warning mb-1">
+            <span>Registrando salidas en base de datos...</span>
+            <span>{{ outputProgress }}%</span>
+        </div>
+        <div class="progress" style="height: 15px;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated bg-warning" role="progressbar"
+                [style.width.%]="outputProgress" [attr.aria-valuenow]="outputProgress" aria-valuemin="0"
+                aria-valuemax="100">
+            </div>
+        </div>
+    </div>
+    }
+
+    <button class="btn btn-warning w-100 btn-lg mb-3" (click)="confirmBulkOutput()"
+        [disabled]="bulkOutputList.length === 0 || loading">
+        @if (loading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+        Confirmar {{ bulkOutputList.length }} Salidas
+    </button>
+
+    <!-- Vista previa antes de confirmar la salida -->
+    <div class="table-responsive mb-3">
+        <table class="table table-sm align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Nº Parte</th>
+                    <th>Ubicación</th>
+                    <th>Retirar</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (item of bulkOutputList; track $index) {
+                <tr>
+                    <td><small class="fw-bold font-monospace">{{ item.partNumber }}</small></td>
+                    <td><small class="text-muted"><i class="bi bi-geo-alt me-1"></i>{{ item.location }}</small></td>
+                    <td>
+                        <input type="number" class="form-control form-control-sm text-center" style="width:75px"
+                            [(ngModel)]="item.quantity" min="1" [max]="item.maxQuantity">
+                    </td>
+                    <td>
+                        <button class="btn btn-link text-danger btn-sm p-0" (click)="removeBulkOutputItem($index)">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                }
+                @if (bulkOutputList.length === 0) {
+                <tr>
+                    <td colspan="4" class="text-center text-muted py-3 small">
+                        No hay rollos agregados a la lista de salida.
+                    </td>
+                </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    }
+
     <!-- ══════════════ HISTORIAL ══════════════ -->
     @if (view === 'history' && selectedRoll) {
     <button class="btn btn-link ps-0 mb-2" (click)="goBack()">
@@ -419,6 +634,71 @@
                 <button class="btn btn-primary" (click)="saveEdit()" [disabled]="editForm.invalid || loading">
                     @if (loading) { <span class="spinner-border spinner-border-sm me-1"></span> }
                     Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+}
+
+<!-- Modal salida rápida -->
+@if (showQuickOutputModal && quickOutputItem) {
+<div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5)">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-box-arrow-up me-2 text-warning"></i>Salida rápida
+                </h5>
+                <button type="button" class="btn-close" (click)="showQuickOutputModal = false"></button>
+            </div>
+            <div class="modal-body">
+                @if (error) {
+                <div class="alert alert-danger py-2 small">{{ error }}</div>
+                }
+
+                <!-- Info del item -->
+                <div class="card border-0 bg-light mb-3">
+                    <div class="card-body py-2">
+                        <div class="fw-bold">
+                            <i class="bi bi-grid-3x3-gap me-1 text-secondary"></i>
+                            {{ quickOutputItem.location }}
+                        </div>
+                        <small class="text-muted d-block">{{ quickOutputItem.partNumber }}</small>
+                        @if (familyMap.get(quickOutputItem.partNumber)) {
+                        <small class="text-primary d-block">
+                            <i class="bi bi-diagram-3 me-1"></i>
+                            {{ familyMap.get(quickOutputItem.partNumber) }}
+                        </small>
+                        }
+                        <span class="badge mt-1" [class.bg-success]="quickOutputItem.quantity > 10"
+                            [class.bg-warning]="quickOutputItem.quantity > 0 && quickOutputItem.quantity <= 10"
+                            [class.bg-danger]="quickOutputItem.quantity === 0">
+                            Disponible: {{ quickOutputItem.quantity }} pzs
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Cantidad -->
+                <form [formGroup]="quickOutputForm">
+                    <label class="form-label fw-semibold">Cantidad a retirar</label>
+                    <input type="number" class="form-control form-control-lg text-center" formControlName="quantity"
+                        min="1" [max]="quickOutputItem.quantity" placeholder="0">
+                    <div class="form-text text-center">
+                        Máximo {{ quickOutputItem.quantity }} pzs
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" (click)="showQuickOutputModal = false">
+                    Cancelar
+                </button>
+                <button class="btn btn-warning" (click)="saveQuickOutput()"
+                    [disabled]="quickOutputForm.invalid || loading">
+                    @if (loading) {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    <i class="bi bi-box-arrow-up me-1"></i>Confirmar salida
                 </button>
             </div>
         </div>

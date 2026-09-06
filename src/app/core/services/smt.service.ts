@@ -1,6 +1,6 @@
 import { inject, Injectable } from "@angular/core";
 import { Auth } from "@angular/fire/auth";
-import { addDoc, collection, collectionData, deleteDoc, doc, Firestore, getDoc, getDocs, limit, orderBy, query, QueryDocumentSnapshot, serverTimestamp, startAfter, updateDoc, where } from "@angular/fire/firestore";
+import { addDoc, collection, collectionData, deleteDoc, doc, Firestore, getDoc, getDocs, limit, orderBy, query, QueryDocumentSnapshot, serverTimestamp, startAfter, updateDoc, where, writeBatch, increment } from "@angular/fire/firestore";
 import { Observable } from "rxjs";
 import { SmtMovement, SmtRoll } from "../models/smt.model";
 
@@ -60,6 +60,39 @@ export class SmtService {
             return [];
         }
         return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SmtRoll));
+    }
+
+    // Añade esta función en tu SmtService
+    async getRollsByPartNumbers(
+        partNumbers: string[],
+        onProgress?: (current: number, total: number) => void
+    ): Promise<SmtRoll[]> {
+        if (partNumbers.length === 0) return [];
+
+        const uniquePartNumbers = [...new Set(partNumbers)];
+        const rolls: SmtRoll[] = [];
+
+        // Firestore permite un máximo de 10 elementos en una consulta 'in'
+        const chunkSize = 10;
+        const ref = collection(this.firestore, 'smt_rolls');
+
+        let processedItems = 0;
+
+        for (let i = 0; i < uniquePartNumbers.length; i += chunkSize) {
+            const chunk = uniquePartNumbers.slice(i, i + chunkSize);
+            const q = query(ref, where('partNumber', 'in', chunk));
+            const snap = await getDocs(q);
+
+            rolls.push(...snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SmtRoll)));
+
+            // Actualizar el progreso cada vez que termina un bloque de 10
+            processedItems += chunk.length;
+            if (onProgress) {
+                onProgress(processedItems, uniquePartNumbers.length);
+            }
+        }
+
+        return rolls;
     }
 
     async getMovementsPaginated(
@@ -140,5 +173,136 @@ export class SmtService {
         const q = query(ref, orderBy('date', 'desc'));
         const snap = await getDocs(q);
         return snap.docs.map(d => ({ id: d.id, ...d.data() } as SmtMovement));
+    }
+
+    // Carga Masiva (Entradas) ──────────────────────────────────
+    async registerBulkInput(
+        items: { partNumber: string, quantity: number, location: string }[],
+        onProgress?: (current: number, total: number) => void // <-- NUEVO PARÁMETRO
+    ) {
+        const user = this.auth.currentUser;
+        if (!user) throw new Error('No hay usuario autenticado');
+
+        const consolidatedMap = new Map<string, { partNumber: string, quantity: number, location: string }>();
+        for (const item of items) {
+            const key = `${item.partNumber}_${item.location.toLowerCase().trim()}`;
+            if (consolidatedMap.has(key)) {
+                consolidatedMap.get(key)!.quantity += item.quantity;
+            } else {
+                consolidatedMap.set(key, { ...item });
+            }
+        }
+        const uniqueItems = Array.from(consolidatedMap.values());
+
+        const chunkSize = 200;
+        const movementsRef = collection(this.firestore, 'smt_movements');
+        const rollsRef = collection(this.firestore, 'smt_rolls');
+
+        let processedItems = 0; // <-- NUEVA VARIABLE CONTADORA
+
+        for (let i = 0; i < uniqueItems.length; i += chunkSize) {
+            const chunk = uniqueItems.slice(i, i + chunkSize);
+            const batch = writeBatch(this.firestore);
+
+            for (const item of chunk) {
+                const q = query(rollsRef, where('partNumber', '==', item.partNumber));
+                const snap = await getDocs(q);
+
+                const existingDoc = snap.docs.find(d =>
+                    d.data()['location']?.toLowerCase().trim() === item.location.toLowerCase().trim()
+                );
+
+                let rollId: string;
+
+                if (existingDoc) {
+                    rollId = existingDoc.id;
+                    batch.update(existingDoc.ref, {
+                        quantity: increment(item.quantity),
+                        updatedAt: serverTimestamp()
+                    });
+                } else {
+                    const newRollRef = doc(rollsRef);
+                    rollId = newRollRef.id;
+                    batch.set(newRollRef, {
+                        partNumber: item.partNumber,
+                        quantity: item.quantity,
+                        location: item.location,
+                        createdAt: serverTimestamp(),
+                        updatedAt: serverTimestamp()
+                    });
+                }
+
+                const newMovementRef = doc(movementsRef);
+                batch.set(newMovementRef, {
+                    rollId: rollId,
+                    partNumber: item.partNumber,
+                    type: 'entrada',
+                    quantity: item.quantity,
+                    userId: user.uid,
+                    userName: user.displayName || user.email,
+                    date: serverTimestamp()
+                });
+            }
+
+            // Subimos el lote a Firebase
+            await batch.commit();
+
+            // Actualizamos el contador y emitimos el progreso
+            processedItems += chunk.length;
+            if (onProgress) {
+                onProgress(processedItems, uniqueItems.length);
+            }
+        }
+    }
+
+    // Carga Masiva (Salidas) ──────────────────────────────────
+    async registerBulkOutput(
+        items: { rollId: string, partNumber: string, quantity: number, location: string }[],
+        onProgress?: (current: number, total: number) => void
+    ) {
+        const user = this.auth.currentUser;
+        if (!user) throw new Error('No hay usuario autenticado');
+
+        // Tamaño del lote (Firestore acepta hasta 500 operaciones por batch, 200 es muy seguro)
+        const chunkSize = 200;
+        const movementsRef = collection(this.firestore, 'smt_movements');
+        const rollsRef = collection(this.firestore, 'smt_rolls');
+
+        let processedItems = 0;
+
+        for (let i = 0; i < items.length; i += chunkSize) {
+            const chunk = items.slice(i, i + chunkSize);
+            const batch = writeBatch(this.firestore);
+
+            for (const item of chunk) {
+                // 1. Actualizar el rollo existente (restar cantidad)
+                const rollDocRef = doc(rollsRef, item.rollId);
+                batch.update(rollDocRef, {
+                    quantity: increment(-item.quantity), // Restamos usando valor negativo
+                    updatedAt: serverTimestamp()
+                });
+
+                // 2. Registrar el movimiento de salida
+                const newMovementRef = doc(movementsRef);
+                batch.set(newMovementRef, {
+                    rollId: item.rollId,
+                    partNumber: item.partNumber,
+                    type: 'salida',
+                    quantity: item.quantity,
+                    userId: user.uid,
+                    userName: user.displayName || user.email,
+                    date: serverTimestamp()
+                });
+            }
+
+            // Subimos el lote a Firebase
+            await batch.commit();
+
+            // Emitimos el progreso actual
+            processedItems += chunk.length;
+            if (onProgress) {
+                onProgress(processedItems, items.length);
+            }
+        }
     }
 }

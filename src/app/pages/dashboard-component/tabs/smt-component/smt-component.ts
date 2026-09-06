@@ -2,14 +2,14 @@ import { Component, inject, OnInit, ChangeDetectorRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators, FormsModule } from '@angular/forms';
 import { AsyncPipe, DatePipe } from '@angular/common';
 import { SmtService } from '../../../../core/services/smt.service';
-import { SmtRoll, SmtMovement } from '../../../../core/models/smt.model';
+import { SmtRoll, SmtMovement, BulkOutputItem, BulkInputItem } from '../../../../core/models/smt.model';
 import { Observable } from 'rxjs';
 import { AuthService } from '../../../../core/services/auth.service';
 import { QueryDocumentSnapshot } from '@angular/fire/firestore';
 import { ExportService } from '../../../../core/services/export.service';
 import { QrScannerComponent } from '../../../../shared/qr-scanner/qr-scanner';
 
-type View = 'list' | 'input' | 'output' | 'history';
+type View = 'list' | 'input' | 'output' | 'history' | 'bulk-input' | 'bulk-output';
 type InputMode = 'manual' | 'camera';
 
 @Component({
@@ -59,6 +59,27 @@ export class SmtComponent implements OnInit {
 
   showEditModal = false;
   editingRoll: SmtRoll | null = null;
+
+  // Variables para manejo de texto masivo
+  bulkInputText = '';
+  bulkOutputText = '';
+  defaultInputLocation = 'CAJA01';
+  uploadProgress: number = 0;
+  outputProgress: number = 0;
+  searchProgress: number = 0;
+
+  bulkInputList: BulkInputItem[] = [];
+  bulkOutputList: BulkOutputItem[] = [];
+
+  // ── Salida rapida ─────────────────────────────────────
+  showQuickOutputModal = false;
+  quickOutputItem: SmtRoll | null = null;
+  quickOutputForm = this.fb.group({
+    quantity: [null as number | null, [Validators.required, Validators.min(1)]]
+  });
+
+  familyMap = new Map<string, string>(); // partNumber → familyName
+  familyForInput: string | null = null;
 
   // Formulario entrada
   inputForm = this.fb.group({
@@ -174,7 +195,17 @@ export class SmtComponent implements OnInit {
   async onSearchCodeScanned(code: string) {
     if (!code) return;
     this.searchScannerEnabled = false;
-    this.searchPartNumber = code;
+
+    let parsedCode = code.trim();
+
+    if (parsedCode.includes('$')) {
+      const parts = parsedCode.split('$');
+      if (parts.length > 1) {
+        parsedCode = parts[1].substring(0, 18).trim();
+      }
+    }
+
+    this.searchPartNumber = parsedCode;
     this.onSearch();
   }
 
@@ -211,6 +242,13 @@ export class SmtComponent implements OnInit {
     this.inputForm.reset({ quantity: null });
   }
 
+  openBulkInput() {
+    this.view = 'bulk-input';
+    this.bulkInputList = [];
+    this.bulkInputText = '';
+    this.error = '';
+  }
+
   openOutput() {
     this.view = 'output';
     this.outputStep = 'form';
@@ -219,6 +257,20 @@ export class SmtComponent implements OnInit {
     this.inputMode = 'manual';
     this.error = '';
     this.outputForm.reset({ quantity: null });
+  }
+
+  openBulkOutput() {
+    this.view = 'bulk-output';
+    this.bulkOutputList = [];
+    this.bulkOutputText = '';
+    this.error = '';
+  }
+
+  openQuickOutput(item: SmtRoll) {
+    this.quickOutputItem = item;
+    this.quickOutputForm.reset({ quantity: null });
+    this.error = '';
+    this.showQuickOutputModal = true;
   }
 
   // ── Escáner ──────────────────────────────────────────
@@ -340,6 +392,76 @@ export class SmtComponent implements OnInit {
     }
   }
 
+  processBulkInputText() {
+    if (!this.bulkInputText.trim()) return;
+
+    const lines = this.bulkInputText.split('\n');
+    const newList: BulkInputItem[] = [];
+
+    for (let line of lines) {
+      line = line.trim();
+      if (!line) continue;
+
+      // Option 1: Formato DataMatrix ($)
+      const dmParsed = this.parseDataMatrix(line);
+      if (dmParsed) {
+        newList.push({
+          partNumber: dmParsed.partNumber.substring(0, 18),
+          quantity: dmParsed.quantity,
+          location: this.defaultInputLocation
+        });
+        continue;
+      }
+
+      // Option 2: Formato separado por espacios, comas, punto y coma o tabuladores
+      // Ejemplos válidos:
+      // 123456789012345678 50 RACK-1
+      // 123456789012345678, 50, RACK-1
+      const parts = line.split(/[\s,;]+/).map(p => p.trim()).filter(Boolean);
+      const partNumber = parts[0]?.substring(0, 18);
+      const quantity = parseInt(parts[1], 10) || 1;
+      const location = parts[2] || this.defaultInputLocation;
+
+      if (partNumber) {
+        newList.push({ partNumber, quantity, location });
+      }
+    }
+
+    this.bulkInputList = [...this.bulkInputList, ...newList];
+    this.bulkInputText = ''; // Limpiar el textarea tras procesar
+    this.cdr.detectChanges();
+  }
+
+  removeBulkInputItem(index: number) {
+    this.bulkInputList.splice(index, 1);
+  }
+
+  async confirmBulkInput() {
+    if (this.bulkInputList.length === 0) return;
+    this.loading = true;
+    this.error = '';
+    this.uploadProgress = 0; // Reiniciar progreso
+
+    try {
+      // Pasamos la lista y una función que recibirá el progreso
+      await this.smtService.registerBulkInput(this.bulkInputList, (current, total) => {
+        // Calculamos el porcentaje
+        this.uploadProgress = Math.round((current / total) * 100);
+        this.cdr.detectChanges(); // Forzamos a Angular a dibujar la barra actualizada
+      });
+
+      this.success = `Entradas masivas registradas con éxito (${this.bulkInputList.length} líneas)`;
+      this.goBack();
+      setTimeout(() => this.success = '', 4000);
+    } catch (e: any) {
+      this.error = e.message || 'Error al procesar las entradas masivas';
+    } finally {
+      this.loading = false;
+      this.uploadProgress = 0;
+      this.cdr.detectChanges();
+    }
+  }
+
   // ── Salida ───────────────────────────────────────────
   async searchRolls() {
     const { partNumber } = this.outputForm.value;
@@ -412,6 +534,182 @@ export class SmtComponent implements OnInit {
       this.error = (error as any).message || 'Error al registrar salida';
     } finally {
       this.loading = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async saveQuickOutput() {
+    if (this.quickOutputForm.invalid || !this.quickOutputItem?.id) return;
+    this.loading = true;
+    this.error = '';
+
+    try {
+      const { quantity } = this.quickOutputForm.value;
+
+      if (quantity! > this.quickOutputItem.quantity) {
+        this.error = `Stock insuficiente. Disponible: ${this.quickOutputItem.quantity} pzs`;
+        return;
+      }
+
+      await this.smtService.registerMovement(
+        this.quickOutputItem.id!,
+        this.quickOutputItem.partNumber,
+        'salida',
+        quantity!
+      );
+
+      this.success = `Salida registrada — ${this.quickOutputItem.location} (-${quantity} pzs)`;
+      this.showQuickOutputModal = false;
+
+      const idx = this.allLoadedRolls.findIndex(i => i.id === this.quickOutputItem!.id);
+      if (idx !== -1) {
+        this.allLoadedRolls[idx] = {
+          ...this.allLoadedRolls[idx],
+          quantity: this.allLoadedRolls[idx].quantity - quantity!
+        };
+        this.filteredRolls = this.applyFilter(this.allLoadedRolls);
+      }
+
+      setTimeout(() => this.success = '', 3000);
+    } catch (e: any) {
+      this.error = e.message || 'Error al registrar salida';
+    } finally {
+      this.loading = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  // ── Procesamiento de Texto: SALIDA ─────────────────────
+  async processBulkOutputText() {
+    if (!this.bulkOutputText.trim()) return;
+    this.loading = true;
+    this.error = '';
+    this.searchProgress = 0;
+
+    const lines = this.bulkOutputText.split('\n');
+    const rawRequested: { partNumber: string, quantity: number }[] = [];
+
+    // 1. Parsear el texto
+    for (let line of lines) {
+      line = line.trim();
+      if (!line) continue;
+
+      const parts = line.split(/[\s,;]+/).map(p => p.trim()).filter(Boolean);
+      const partNumber = parts[0]?.substring(0, 18);
+      const quantity = parseInt(parts[1], 10) || 1;
+
+      if (partNumber) {
+        rawRequested.push({ partNumber, quantity });
+      }
+    }
+
+    if (rawRequested.length === 0) {
+      this.loading = false;
+      return;
+    }
+
+    // 2. Consolidar peticiones duplicadas del mismo número de parte
+    const requestedMap = new Map<string, number>();
+    for (const item of rawRequested) {
+      const current = requestedMap.get(item.partNumber) || 0;
+      requestedMap.set(item.partNumber, current + item.quantity);
+    }
+
+    try {
+      const uniquePartNumbers = Array.from(requestedMap.keys());
+
+      // Consultar Firebase con barra de progreso
+      const availableRolls = await this.smtService.getRollsByPartNumbers(
+        uniquePartNumbers,
+        (current, total) => {
+          this.searchProgress = Math.round((current / total) * 100);
+          this.cdr.detectChanges();
+        }
+      );
+
+      const errors: string[] = [];
+
+      // 3. Distribuir el consumo entre los rollos disponibles
+      for (const [partNumber, neededQty] of requestedMap.entries()) {
+        // Filtrar todos los rollos activos para esta parte
+        const rollsForPart = availableRolls.filter(r => r.partNumber === partNumber && r.quantity > 0);
+        const totalStock = rollsForPart.reduce((acc, r) => acc + r.quantity, 0);
+
+        if (totalStock === 0) {
+          errors.push(`Sin stock disponible: ${partNumber}`);
+          continue;
+        }
+
+        if (neededQty > totalStock) {
+          errors.push(`Stock insuficiente para ${partNumber} (Pediste: ${neededQty}, Disponible total: ${totalStock})`);
+          continue;
+        }
+
+        // Consumir el stock rollo por rollo hasta cubrir lo requerido
+        let remainingToWithdraw = neededQty;
+
+        for (const roll of rollsForPart) {
+          if (remainingToWithdraw <= 0) break;
+
+          const takeFromThisRoll = Math.min(roll.quantity, remainingToWithdraw);
+          const existing = this.bulkOutputList.find(i => i.rollId === roll.id);
+
+          if (existing) {
+            existing.quantity += takeFromThisRoll;
+          } else {
+            this.bulkOutputList.push({
+              rollId: roll.id!,
+              partNumber: roll.partNumber,
+              location: roll.location,
+              quantity: takeFromThisRoll,
+              maxQuantity: roll.quantity
+            });
+          }
+
+          remainingToWithdraw -= takeFromThisRoll;
+        }
+      }
+
+      if (errors.length > 0) {
+        this.error = "Algunos ítems no se agregaron:\n" + errors.join('\n');
+      }
+
+      this.bulkOutputText = '';
+    } catch (e: any) {
+      this.error = e.message || 'Error al buscar los rollos de salida';
+    } finally {
+      this.loading = false;
+      this.searchProgress = 0;
+      this.cdr.detectChanges();
+    }
+  }
+
+  removeBulkOutputItem(index: number) {
+    this.bulkOutputList.splice(index, 1);
+  }
+
+  async confirmBulkOutput() {
+    if (this.bulkOutputList.length === 0) return;
+    this.loading = true;
+    this.error = '';
+    this.outputProgress = 0; // Reiniciar progreso
+
+    try {
+      // Pasamos la lista y el callback del progreso al servicio
+      await this.smtService.registerBulkOutput(this.bulkOutputList, (current, total) => {
+        this.outputProgress = Math.round((current / total) * 100);
+        this.cdr.detectChanges(); // Refrescar la vista
+      });
+
+      this.success = `Salidas masivas registradas con éxito (${this.bulkOutputList.length} ítems)`;
+      this.goBack(); // Limpia la lista y regresa al menú
+      setTimeout(() => this.success = '', 4000);
+    } catch (e: any) {
+      this.error = e.message || 'Error al procesar las salidas masivas';
+    } finally {
+      this.loading = false;
+      // Puedes reiniciar la barra al final si lo deseas
+      this.outputProgress = 0;
       this.cdr.detectChanges();
     }
   }

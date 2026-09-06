@@ -17,3 +17,17 @@ export interface SmtMovement {
     userName: string;
     date: any;
 }
+
+export interface BulkInputItem {
+    partNumber: string;
+    quantity: number;
+    location: string;
+}
+
+export interface BulkOutputItem {
+    rollId: string;
+    partNumber: string;
+    location: string;
+    quantity: number;
+    maxQuantity: number;
+}
